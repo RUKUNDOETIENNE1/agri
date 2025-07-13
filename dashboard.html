@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriPal Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+  <!-- Add i18next library -->
+  <script src="https://cdn.jsdelivr.net/npm/i18next@21.6.10/i18next.min.js"></script>
+  
+  <style>
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s; }
+    .subtab-content { display: none; }
+    .subtab-content.active { display: block; animation: fadeIn 0.3s; }
+    .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+    .collapsible .arrow { transition: transform 0.3s; }
+    .collapsible.active .arrow { transform: rotate(180deg); }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .section-anchor { scroll-margin-top: 80px; }
+    .loader { border-top-color: transparent; animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .channel-badge { display: none; }
+    .channel-option.selected .channel-badge { display: flex; }
+    [lang="rw"] { font-family: 'Noto Sans', sans-serif; }
+    #fieldMap { height: 300px; }
+    .ndvi-legend { background: white; padding: 5px; border-radius: 5px; }
+    .health-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .quick-action-card { transition: all 0.3s ease; }
+    .quick-action-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .weather-card { transition: all 0.3s ease; }
+    .weather-card:hover { transform: scale(1.03); }
+    .farm-details { transition: opacity 0.3s ease; }
+  </style>
+</head>
+
+<body class="bg-gray-50 transition-colors duration-200 dark:bg-gray-900">
+  <!-- Navigation Bar -->
+  <nav class="bg-green-800 text-white p-4 shadow-md fixed w-full z-10">
+    <div class="container mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477 4.5 1.253"/>
+        </svg>
+        <h1 class="text-xl font-bold" data-i18n="app_title">AgriPal Dashboard</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="mr-2">
+          <select id="languageToggle" class="bg-green-700 text-white text-sm rounded px-2 py-1 border border-green-600">
+            <option value="en">English</option>
+            <option value="rw">Kinyarwanda</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+        <button id="notifBtn" class="relative p-2 rounded-full hover:bg-green-700">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+          <span class="absolute top-0 right-0 bg-red-500 text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+        </button>
+        <div class="relative">
+          <button id="profileBtn" class="flex items-center space-x-1 focus:outline-none">
+            <div class="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
+              <span id="userInitials">JD</span>
+            </div>
+          </button>
+          <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 dark:bg-gray-800">
+            <div class="px-4 py-2 border-b dark:border-gray-700">
+              <p id="userEmail" class="text-sm font-medium dark:text-white">john.doe@agripal.com</p>
+            </div>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200" data-i18n="account_settings">Account Settings</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200" data-i18n="help_center">Help Center</a>
+          </div>
+        </div>
+        <button id="darkModeToggle" class="p-2 rounded-full bg-gray-200 focus:outline-none dark:bg-gray-700">
+          <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+          </svg>
+          <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-300 hidden" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+          </svg>
+        </button>
+        <button id="logoutBtn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md font-medium transition-colors">
+          <span data-i18n="logout">Logout</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Notification Panel -->
+  <div id="notifPanel" class="hidden fixed right-4 top-16 w-72 bg-white dark:bg-gray-800 shadow-lg rounded-lg z-50 p-4">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-medium dark:text-white" data-i18n="notifications">Notifications</h3>
+      <button class="text-sm text-blue-600 dark:text-blue-400" data-i18n="mark_all_read">Mark all read</button>
+    </div>
+    <div class="space-y-3 max-h-96 overflow-y-auto">
+      <div class="p-2 bg-yellow-50 dark:bg-yellow-900 rounded">
+        <p class="font-medium dark:text-white">⚠️ <span data-i18n="alert_armyworm">High armyworm risk detected</span></p>
+        <p class="text-xs dark:text-yellow-200" data-i18n="alert_armyworm_desc">Spray neem oil within 48 hours</p>
+      </div>
+      <div class="p-2 bg-blue-50 dark:bg-blue-900 rounded">
+        <p class="font-medium dark:text-white">ℹ️ <span data-i18n="alert_irrigation">Irrigation needed tomorrow</span></p>
+        <p class="text-xs dark:text-blue-200" data-i18n="alert_irrigation_desc">Soil moisture at 35%</p>
+      </div>
+      <div class="p-2 bg-green-50 dark:bg-green-900 rounded">
+        <p class="font-medium dark:text-white">📢 <span data-i18n="alert_market">Maize prices up 15%</span></p>
+        <p class="text-xs dark:text-green-200" data-i18n="alert_market_desc">Best time to sell</p>
+      </div>
+    </div>
+  </div>
+
+  <main class="container mx-auto p-4 pt-20">
+    <!-- Tab Navigation -->
+    <div class="flex overflow-x-auto mb-6 border-b dark:border-gray-700">
+      <button class="tab-btn px-4 py-2 font-medium border-b-2 border-green-500 text-green-600 dark:text-green-300" 
+              data-tab="dashboard" data-i18n="tab_dashboard">Dashboard</button>
+      <button class="tab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+              data-tab="crop-management" data-i18n="tab_crop_management">Crop Management</button>
+      <button class="tab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+              data-tab="livestock" data-i18n="tab_livestock">Livestock</button>
+      <button class="tab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+              data-tab="soil-land" data-i18n="tab_soil_land">Soil & Land</button>
+      <button class="tab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+              data-tab="market" data-i18n="tab_market">Market</button>
+      <button class="tab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+              data-tab="intelligence" data-i18n="tab_intelligence">Intelligence</button>
+      <button class="tab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+              data-tab="business-plan" data-i18n="tab_business">Business</button>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="dashboard-tab" class="tab-content active">
+      <!-- Alerts Section -->
+      <div class="mb-4 bg-orange-50 dark:bg-orange-900 rounded-lg p-3">
+        <div class="flex items-start">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5 mr-2 text-orange-500 dark:text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <div>
+            <h3 class="font-medium dark:text-white" data-i18n="active_alerts">Active Alerts</h3>
+            <ul class="list-disc list-inside text-sm mt-1 dark:text-orange-200">
+              <li data-i18n="alert_armyworm">Fall armyworm outbreak predicted in your region</li>
+              <li>Soil pH dropping (5.8 → 5.3 in 3 months)</li>
+              <li data-i18n="alert_vaccination">Livestock vaccination due next week</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Farm Profile Section -->
+      <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold dark:text-white">
+            <i class="fas fa-tractor mr-2"></i>
+            <span data-i18n="farm_profile">My Farm Profile</span>
+          </h2>
+          <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm" data-i18n="edit_profile">
+            Edit Profile
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Farm Map -->
+          <div class="bg-gray-100 dark:bg-gray-700 rounded-lg h-64 flex items-center justify-center">
+            <i class="fas fa-map-marked-alt text-4xl text-gray-400 dark:text-gray-500"></i>
+          </div>
+          
+          <!-- Farm Details - Now Dynamic -->
+          <div id="farmDetailsContent">
+            <!-- Crop Farming Details (shown by default) -->
+            <div id="cropFarmDetails" class="farm-details">
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="hectares">Hectares</p>
+                  <p class="text-xl font-bold dark:text-white">5.2</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="main_crop">Main Crop</p>
+                  <p class="text-xl font-bold dark:text-white" data-i18n="maize">Maize</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="soil_type">Soil Type</p>
+                  <p class="text-xl font-bold dark:text-white">Loamy</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="water_ph">Water pH Level</p>
+                  <p class="text-xl font-bold dark:text-white">6.8</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Livestock Farming Details (hidden by default) -->
+            <div id="livestockFarmDetails" class="farm-details hidden">
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Total Animals</p>
+                  <p class="text-xl font-bold dark:text-white">24</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Main Livestock</p>
+                  <p class="text-xl font-bold dark:text-white">Dairy Cows</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Average Yield</p>
+                  <p class="text-xl font-bold dark:text-white">18L/day</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <p class="text-sm text-gray-500 dark:text-gray-400">Feed Stock</p>
+                  <p class="text-xl font-bold dark:text-white">3 weeks</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emergency Button -->
+      <div class="mb-6 text-center">
+        <button onclick="document.getElementById('emergencyModal').classList.remove('hidden')" 
+                class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium w-full max-w-md mx-auto transition-all shadow-md">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          <span data-i18n="emergency_assistance">Emergency Vet/Agronomist Assistance</span>
+        </button>
+      </div>
+
+      <!-- Farming Type Tabs -->
+      <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+        <button id="cropTab" class="px-4 py-2 font-medium text-green-600 dark:text-green-300 border-b-2 border-green-600 dark:border-green-300" data-i18n="crop_farming">
+          Crop Farming
+        </button>
+        <button id="livestockTab" class="px-4 py-2 font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" data-i18n="livestock_farming">
+          Livestock Farming
+        </button>
+      </div>
+
+      <!-- Crop Farming Content -->
+      <div id="cropContent" class="tab-content active">
+        <!-- Satellite Insights Section -->
+        <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold dark:text-white">
+              <i class="fas fa-satellite mr-2"></i>
+              <span>Satellite Insights</span>
+            </h3>
+            <div class="flex space-x-2">
+              <select id="timeRange" class="bg-gray-100 dark:bg-gray-700 text-sm rounded px-2 py-1">
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+              </select>
+              <button id="drawFieldBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                <i class="fas fa-draw-polygon mr-1"></i> Draw Field
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Field Map -->
+            <div class="lg:col-span-2 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+              <div id="fieldMap"></div>
+            </div>
+            
+            <!-- Field Analysis -->
+            <div class="space-y-4">
+              <div class="flex space-x-2 mb-3">
+                <button id="ndviWeekFilter" class="px-3 py-1 bg-gray-200 rounded text-sm dark:bg-gray-600">Last 7 Days</button>
+                <button id="ndviMonthFilter" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Last 30 Days</button>
+              </div> 
+              <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium mb-2 dark:text-white">Field Health</h4>
+                <div class="flex items-center mb-2">
+                  <span class="health-indicator bg-green-500"></span>
+                  <span class="font-medium dark:text-white">North Field (Maize)</span>
+                </div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-gray-600 dark:text-gray-300">Current NDVI:</span>
+                  <span class="font-bold dark:text-white">0.72</span>
+                </div>
+                <div class="flex justify-between text-sm mb-3">
+                  <span class="text-gray-600 dark:text-gray-300">Trend:</span>
+                  <span class="font-bold text-green-500">+5.2%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
+                  <div class="bg-green-500 h-2.5 rounded-full" style="width: 72%"></div>
+                </div>
+              </div>
+              
+              <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium mb-2 dark:text-white">Irrigation Recommendation</h4>
+                <div class="flex items-start">
+                  <div class="mr-3 p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
+                    <i class="fas fa-tint text-blue-600 dark:text-blue-300"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm dark:text-gray-300">Recommended: <span class="font-bold">25mm</span> in next 48 hours</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Based on NDVI (0.72) and weather forecast</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium mb-2 dark:text-white">NDVI Trend</h4>
+                <div class="h-40">
+                  <canvas id="ndviTrendChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Production and Cost Analysis -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Production Chart -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold dark:text-white flex items-center">
+                <i class="fas fa-chart-line text-green-600 dark:text-green-300 mr-2"></i>
+                <span data-i18n="monthly_production">Monthly Production</span>
+              </h3>
+              <button id="exportProductionBtn" class="flex items-center px-3 py-1 bg-blue-600 text-white rounded text-sm">
+                <i class="fas fa-download mr-1 text-xs"></i> Export
+              </button>
+            </div> 
+            <div class="h-64">
+              <canvas id="cropProductionChart"></canvas>
+            </div>
+            <div class="mt-4 flex justify-center space-x-4">
+              <div class="flex items-center">
+                <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                <span class="text-sm dark:text-gray-300" data-i18n="maize">Maize</span>
+              </div>
+              <div class="flex items-center">
+                <div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+                <span class="text-sm dark:text-gray-300" data-i18n="beans">Beans</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Cost Chart -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+              <i class="fas fa-money-bill-wave text-blue-600 dark:text-blue-300 mr-2"></i>
+              <span data-i18n="cost_analysis">Cost Analysis (RWF)</span>
+            </h3>
+            <div class="h-64">
+              <canvas id="cropCostChart"></canvas>
+            </div>
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+              Click on bars for detailed breakdown
+            </div>
+          </div>
+        </div>
+
+        
+<!-- Weather Forecast Section -->
+<div class="weather-section bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+  <!-- Header with Search -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <h3 class="text-xl font-semibold dark:text-white flex items-center">
+      <i class="fas fa-cloud-sun mr-3 text-blue-500 text-2xl"></i>
+      <span data-i18n="weather_forecast">5-Day Weather Forecast</span>
+    </h3>
+    
+    <div class="flex w-full sm:w-auto">
+      <input type="text" 
+             class="weather-search-input flex-grow text-sm border border-r-0 rounded-l-lg px-4 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400" 
+             placeholder="Search location..." 
+             data-i18n-placeholder="search_location"
+             value="Kigali">
+      <button class="weather-search-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-lg text-sm transition-colors">
+        <i class="fas fa-search mr-1"></i>
+        <span data-i18n="search">Search</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Current Weather (Large Card) -->
+  <div class="weather-current-card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl p-6 mb-6 shadow-inner">
+    <div class="flex flex-col md:flex-row items-center justify-between">
+      <!-- Left Side - Basic Info -->
+      <div class="text-center md:text-left mb-4 md:mb-0">
+        <p class="text-lg font-medium dark:text-gray-300 mb-1" data-i18n="today">Today</p>
+        <p class="weather-current-date text-sm text-gray-600 dark:text-gray-400">June 10, 2023</p>
+        <h2 class="weather-current-temp text-5xl font-bold dark:text-white mt-2">28°C</h2>
+        <p class="weather-current-desc text-lg capitalize dark:text-gray-300 mt-1" data-i18n="weather_sunny">Sunny</p>
+      </div>
+      
+      <!-- Center - Weather Icon -->
+      <div class="weather-current-icon mx-4 my-4 md:my-0">
+        <i class="fas fa-sun text-6xl text-yellow-400"></i>
+      </div>
+      
+      <!-- Right Side - Detailed Stats -->
+      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div>
+          <p class="text-gray-600 dark:text-gray-400" data-i18n="humidity">Humidity</p>
+          <p class="weather-current-humidity font-medium dark:text-white">65%</p>
+        </div>
+        <div>
+          <p class="text-gray-600 dark:text-gray-400" data-i18n="wind">Wind</p>
+          <p class="weather-current-wind font-medium dark:text-white">12 km/h</p>
+        </div>
+        <div>
+          <p class="text-gray-600 dark:text-gray-400" data-i18n="precipitation">Precip</p>
+          <p class="weather-current-precip font-medium dark:text-white">10%</p>
+        </div>
+        <div>
+          <p class="text-gray-600 dark:text-gray-400" data-i18n="pressure">Pressure</p>
+          <p class="weather-current-pressure font-medium dark:text-white">1012 hPa</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5-Day Forecast Grid -->
+  <div class="weather-forecast-container grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+    <!-- Day 1 -->
+    <div class="weather-forecast-card bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+      <p class="font-medium dark:text-white weather-day-1-day">Mon</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 weather-day-1-date">Jun 11</p>
+      <i class="fas fa-cloud-sun text-4xl my-3 text-amber-300 weather-day-1-icon"></i>
+      <p class="text-2xl font-bold dark:text-white weather-day-1-temp">26°C</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300 capitalize weather-day-1-desc" data-i18n="weather_partly_cloudy">Partly Cloudy</p>
+      <div class="flex justify-center items-center mt-2 space-x-3">
+        <span class="text-xs text-blue-500 weather-day-1-precip" title="Precipitation">
+          <i class="fas fa-tint mr-1"></i>20%
+        </span>
+        <span class="text-xs text-gray-500 weather-day-1-wind" title="Wind">
+          <i class="fas fa-wind mr-1"></i>8 km/h
+        </span>
+      </div>
+    </div>
+    
+    <!-- Day 2 -->
+    <div class="weather-forecast-card bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+      <p class="font-medium dark:text-white weather-day-2-day">Tue</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 weather-day-2-date">Jun 12</p>
+      <i class="fas fa-cloud-rain text-4xl my-3 text-blue-400 weather-day-2-icon"></i>
+      <p class="text-2xl font-bold dark:text-white weather-day-2-temp">22°C</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300 capitalize weather-day-2-desc" data-i18n="weather_rainy">Rainy</p>
+      <div class="flex justify-center items-center mt-2 space-x-3">
+        <span class="text-xs text-blue-500 weather-day-2-precip">
+          <i class="fas fa-tint mr-1"></i>80%
+        </span>
+        <span class="text-xs text-gray-500 weather-day-2-wind">
+          <i class="fas fa-wind mr-1"></i>15 km/h
+        </span>
+      </div>
+    </div>
+    
+    <!-- Day 3 -->
+    <div class="weather-forecast-card bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+      <p class="font-medium dark:text-white weather-day-3-day">Wed</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 weather-day-3-date">Jun 13</p>
+      <i class="fas fa-sun text-4xl my-3 text-yellow-400 weather-day-3-icon"></i>
+      <p class="text-2xl font-bold dark:text-white weather-day-3-temp">28°C</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300 capitalize weather-day-3-desc" data-i18n="weather_sunny">Sunny</p>
+      <div class="flex justify-center items-center mt-2 space-x-3">
+        <span class="text-xs text-blue-500 weather-day-3-precip">
+          <i class="fas fa-tint mr-1"></i>5%
+        </span>
+        <span class="text-xs text-gray-500 weather-day-3-wind">
+          <i class="fas fa-wind mr-1"></i>10 km/h
+        </span>
+      </div>
+    </div>
+    
+    <!-- Day 4 -->
+    <div class="weather-forecast-card bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+      <p class="font-medium dark:text-white weather-day-4-day">Thu</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 weather-day-4-date">Jun 14</p>
+      <i class="fas fa-cloud text-4xl my-3 text-gray-400 weather-day-4-icon"></i>
+      <p class="text-2xl font-bold dark:text-white weather-day-4-temp">24°C</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300 capitalize weather-day-4-desc" data-i18n="weather_cloudy">Cloudy</p>
+      <div class="flex justify-center items-center mt-2 space-x-3">
+        <span class="text-xs text-blue-500 weather-day-4-precip">
+          <i class="fas fa-tint mr-1"></i>30%
+        </span>
+        <span class="text-xs text-gray-500 weather-day-4-wind">
+          <i class="fas fa-wind mr-1"></i>12 km/h
+        </span>
+      </div>
+    </div>
+    
+    <!-- Day 5 -->
+    <div class="weather-forecast-card bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+      <p class="font-medium dark:text-white weather-day-5-day">Fri</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 weather-day-5-date">Jun 15</p>
+      <i class="fas fa-bolt text-4xl my-3 text-yellow-300 weather-day-5-icon"></i>
+      <p class="text-2xl font-bold dark:text-white weather-day-5-temp">25°C</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300 capitalize weather-day-5-desc" data-i18n="weather_stormy">Stormy</p>
+      <div class="flex justify-center items-center mt-2 space-x-3">
+        <span class="text-xs text-blue-500 weather-day-5-precip">
+          <i class="fas fa-tint mr-1"></i>60%
+        </span>
+        <span class="text-xs text-gray-500 weather-day-5-wind">
+          <i class="fas fa-wind mr-1"></i>20 km/h
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error State (Hidden by Default) -->
+  <div class="weather-error-state hidden text-center py-8 bg-red-50 dark:bg-red-900 rounded-lg mt-6">
+    <i class="fas fa-exclamation-triangle text-red-500 dark:text-red-300 text-3xl mb-3"></i>
+    <p class="text-red-600 dark:text-red-200 font-medium mb-4" data-i18n="weather_data_unavailable">
+      Weather data unavailable
+    </p>
+    <button class="weather-retry-btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
+      <i class="fas fa-sync-alt mr-2"></i>
+      <span data-i18n="retry">Retry Connection</span>
+    </button>
+  </div>
+</div>
+        <!-- Quick Actions -->
+        <div class="mb-6">
+          <h3 class="text-lg font-semibold mb-4 dark:text-white" data-i18n="quick_actions">Quick Actions</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="#pest-management" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <div class="bg-red-100 dark:bg-red-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                <i class="fas fa-bug text-red-600 dark:text-red-300 text-xl"></i>
+              </div>
+              <span class="font-medium dark:text-white" data-i18n="pest_control">Pest Control</span>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Identify & treat pests</p>
+            </a>
+            <a href="#irrigation" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                <i class="fas fa-tint text-blue-600 dark:text-blue-300 text-xl"></i>
+              </div>
+              <span class="font-medium dark:text-white" data-i18n="irrigation">Irrigation</span>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Schedule watering</p>
+            </a>
+            <a href="#market-prices" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <div class="bg-green-100 dark:bg-green-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                <i class="fas fa-shopping-basket text-green-600 dark:text-green-300 text-xl"></i>
+              </div>
+              <span class="font-medium dark:text-white" data-i18n="market_prices">Market Prices</span>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Check current rates</p>
+            </a>
+            <a href="#livestock" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <div class="bg-purple-100 dark:bg-purple-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                <i class="fas fa-cow text-purple-600 dark:text-purple-300 text-xl"></i>
+              </div>
+              <span class="font-medium dark:text-white" data-i18n="livestock">Livestock</span>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Health & feeding</p>
+            </a>
+          </div>
+        </div>
+      </div>
+
+     
+
+<!-- Livestock Farming Content -->
+<div id="livestockContent" class="tab-content hidden">
+  <!-- Livestock Overview Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <!-- Animal Health Overview -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white">
+        <i class="fas fa-heartbeat mr-2 text-red-500"></i>
+        <span data-i18n="livestock_health">Health Overview</span>
+      </h3>
+      <div class="space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="dark:text-gray-300" data-i18n="healthy_animals">Healthy Animals</span>
+          <span class="font-bold dark:text-white">18/24</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
+          <div class="bg-green-500 h-2.5 rounded-full" style="width: 75%"></div>
+        </div>
+        <div class="flex justify-between text-sm mt-2">
+          <span class="dark:text-gray-300" data-i18n="recent_issues">Recent Issues</span>
+          <span class="font-medium dark:text-white">2</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Feeding Metrics -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white">
+        <i class="fas fa-utensils mr-2 text-yellow-500"></i>
+        <span data-i18n="feeding_metrics">Feeding Metrics</span>
+      </h3>
+      <div class="space-y-2">
+        <div class="flex justify-between">
+          <span class="dark:text-gray-300" data-i18n="daily_feed">Daily Feed</span>
+          <span class="font-medium dark:text-white">120kg</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="dark:text-gray-300" data-i18n="feed_cost">Feed Cost</span>
+          <span class="font-medium dark:text-white">25,000 RWF</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="dark:text-gray-300" data-i18n="stock_remaining">Stock Remaining</span>
+          <span class="font-medium dark:text-white">7 days</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Reproduction Tracking -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white">
+        <i class="fas fa-baby mr-2 text-blue-500"></i>
+        <span data-i18n="reproduction">Reproduction</span>
+      </h3>
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="font-medium dark:text-white">3</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="pregnant_animals">Pregnant</p>
+        </div>
+        <div>
+          <p class="font-medium dark:text-white">2</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="due_this_month">Due this month</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Livestock Charts Section -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Weight Tracking Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold dark:text-white">
+          <i class="fas fa-weight mr-2 text-purple-500"></i>
+          <span data-i18n="weight_tracking">Weight Tracking</span>
+        </h3>
+        <select id="weightTimeRange" class="bg-gray-100 dark:bg-gray-700 text-sm rounded px-2 py-1">
+          <option value="7" data-i18n="last_7_days">Last 7 Days</option>
+          <option value="30" data-i18n="last_30_days">Last 30 Days</option>
+        </select>
+      </div>
+      <div class="h-64">
+        <canvas id="livestockWeightChart"></canvas>
+      </div>
+    </div>
+    
+    <!-- Milk Production Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold dark:text-white">
+          <i class="fas fa-wine-bottle mr-2 text-blue-500"></i>
+          <span data-i18n="milk_production">Milk Production</span>
+        </h3>
+        <select id="milkTimeRange" class="bg-gray-100 dark:bg-gray-700 text-sm rounded px-2 py-1">
+          <option value="7" data-i18n="last_7_days">Last 7 Days</option>
+          <option value="30" data-i18n="last_30_days">Last 30 Days</option>
+        </select>
+      </div>
+      <div class="h-64">
+        <canvas id="milkProductionChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Livestock Quick Actions -->
+  <div class="mb-6">
+    <h3 class="text-lg font-semibold mb-4 dark:text-white" data-i18n="quick_actions">Quick Actions</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <a href="#health-check" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <div class="bg-red-100 dark:bg-red-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+          <i class="fas fa-heartbeat text-red-600 dark:text-red-300 text-xl"></i>
+        </div>
+        <span class="font-medium dark:text-white" data-i18n="health_check">Health Check</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="record_health">Record health status</p>
+      </a>
+      <a href="#feeding" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+          <i class="fas fa-utensils text-yellow-600 dark:text-yellow-300 text-xl"></i>
+        </div>
+        <span class="font-medium dark:text-white" data-i18n="feeding">Feeding</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="log_feed">Log feed amounts</p>
+      </a>
+      <a href="#vaccination" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+          <i class="fas fa-syringe text-blue-600 dark:text-blue-300 text-xl"></i>
+        </div>
+        <span class="font-medium dark:text-white" data-i18n="vaccination">Vaccination</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="schedule_vaccines">Schedule vaccines</p>
+      </a>
+      <a href="#breeding" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <div class="bg-green-100 dark:bg-green-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+          <i class="fas fa-dna text-green-600 dark:text-green-300 text-xl"></i>
+        </div>
+        <span class="font-medium dark:text-white" data-i18n="breeding">Breeding</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="track_breeding">Track breeding cycles</p>
+      </a>
+    </div>
+  </div>
+</div>
+
+    <!-- Other tabs (same as before) -->
+
+<div id="crop-management-tab" class="tab-content">
+      <!-- Content will go here -->
+    </div>
+
+    <div id="livestock-tab" class="tab-content">
+      <!-- Content will go here -->
+    </div>
+
+    <div id="soil-land-tab" class="tab-content">
+      <!-- Content will go here -->
+    </div>
+
+    <div id="market-tab" class="tab-content">
+      <!-- Content will go here -->
+    </div>
+
+    <div id="intelligence-tab" class="tab-content">
+      <!-- Content will go here -->
+    </div>
+
+    <div id="business-plan-tab" class="tab-content">
+      <!-- Content will go here -->
+    </div>
+
+  </main>
+
+ 
+
+<!-- Script Files -->
+<script src="scripts/translations/en.js"></script>
+<script src="scripts/translations/fr.js"></script>
+<script src="scripts/translations/rw.js"></script>
+<script src="scripts/i18n-init.js"></script> <!-- New initialization file -->
+<script src="scripts/language.js"></script>
+<script src="scripts/satellite.js"></script>
+<script src="scripts/weather.js"></script>
+
+
+<!-- Main app scripts -->
+<script src="scripts/app/tabs.js"></script>
+<script src="scripts/app/farmingTypeSwitch.js"></script>
+<script src="scripts/app/maps.js"></script>
+<script src="scripts/app/charts.js"></script>
+<script src="scripts/app/ui.js"></script>
+
+</body>
+</html>
