@@ -2,7 +2,7 @@
 const API_CONFIG = {
   // OpenWeatherMap Configuration
   OPEN_WEATHER: {
-    KEY: "e784c84bbfdb662f5831fbb9c4116e7d",
+    KEY: "",
     BASE_URL: "https://api.openweathermap.org/data/2.5",
     UNITS: "metric", // Celsius
     EXCLUDE: "minutely,hourly", // Only need daily
@@ -13,7 +13,7 @@ const API_CONFIG = {
 
   // Agromonitoring Configuration
   AGROMONITORING: {
-    API_KEY: '66d91cd9632d58925cef54e5f5b00ab7',
+    API_KEY: '',
     ENDPOINTS: {
       SOIL: 'https://api.agromonitoring.com/agro/1.0/soil',
       NDVI: 'https://api.agromonitoring.com/agro/1.0/ndvi',
