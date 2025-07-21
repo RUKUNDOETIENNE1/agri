@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgriPal Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,6 +16,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
   <!-- Add i18next library -->
   <script src="https://cdn.jsdelivr.net/npm/i18next@21.6.10/i18next.min.js"></script>
+
+  <link rel="stylesheet" href="styles/profile-modal.css">
   
   <style>
     .tab-content { display: none; }
@@ -35,6 +42,29 @@
     .weather-card { transition: all 0.3s ease; }
     .weather-card:hover { transform: scale(1.03); }
     .farm-details { transition: opacity 0.3s ease; }
+    /* Soil Analysis Specific Styles */
+#arContainer {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.soil-type-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+/* Animation for quick test */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.animate-pulse {
+  animation: pulse 1.5s infinite;
+}
   </style>
 </head>
 
@@ -151,6 +181,144 @@
         </div>
       </div>
 
+
+<!-- Profile Modal -->
+<div id="profileModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+    </div>
+
+    <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-600">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg leading-6 font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-leaf text-green-500"></i>
+            <span data-i18n="profile_modal.title">Edit Farm Profile</span>
+          </h3>
+          <button onclick="hideProfileModal()" class="text-gray-400 dark:text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 focus:outline-none">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="mt-4 flex items-center gap-3">
+          <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+            <div class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+          <span id="progressText" class="text-xs text-gray-500 dark:text-gray-400" data-i18n="[html]profile_modal.progress" data-i18n-options='{"completed":0,"total":4}'>0 of 4 completed</span>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 max-h-[60vh] overflow-y-auto">
+        <div class="mb-8">
+          <h4 class="text-lg font-semibold dark:text-white mb-4 flex items-center">
+            <i class="fas fa-user-circle text-blue-500 mr-3"></i>
+            <span data-i18n="profile_modal.personal_section">Personal Details</span>
+          </h4>
+          
+          <div class="space-y-4">
+            <div>
+              <label for="userName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span data-i18n="profile_modal.full_name">Full Name</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="userName" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <div>
+              <label for="userEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span data-i18n="profile_modal.email">Email</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <input type="email" id="userEmail" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <div>
+              <label for="userPhone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span data-i18n="profile_modal.phone">Phone</span>
+              </label>
+              <input type="tel" id="userPhone" placeholder="+250 78..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h4 class="text-lg font-semibold dark:text-white mb-4 flex items-center">
+            <i class="fas fa-tractor text-green-500 mr-3"></i>
+            <span data-i18n="profile_modal.farm_section">Farm Details</span>
+          </h4>
+
+          <div class="space-y-4">
+            <div>
+              <label for="farmType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span data-i18n="profile_modal.farm_type">Farm Type</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <select id="farmType" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+                <option value="" disabled selected data-i18n="profile_modal.select_farm_type">Select farm type...</option>
+                <option value="crop" data-i18n="farm_types.crop">Crop Farming</option>
+                <option value="livestock" data-i18n="farm_types.livestock">Livestock Farming</option>
+                <option value="mixed" data-i18n="farm_types.mixed">Mixed Farming</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="primaryActivity" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span data-i18n="profile_modal.primary_activity">Primary Activity</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="primaryActivity" required placeholder="e.g. Maize, Dairy Cows" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span data-i18n="profile_modal.farm_size">Farm Size</span>
+                <span class="text-red-500">*</span>
+              </label>
+              <div class="flex gap-2">
+                <input type="number" id="farmSize" required step="0.1" placeholder="5.2" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+                <select id="farmSizeUnit" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+                  <option value="hectares" data-i18n="units.hectares">ha</option>
+                  <option value="acres" data-i18n="units.acres">ac</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="text-lg font-semibold dark:text-white mb-4 flex items-center">
+            <i class="fas fa-cog text-purple-500 mr-3"></i>
+            <span data-i18n="profile_modal.preferences_section">Preferences</span>
+          </h4>
+
+          <div>
+            <label for="userLanguage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <span data-i18n="profile_modal.language">Language</span>
+            </label>
+            <select id="userLanguage" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white">
+              <option value="en">English</option>
+              <option value="rw">Kinyarwanda</option>
+              <option value="fr">Français</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200 dark:border-gray-600">
+        <button onclick="saveProfile()" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
+          <i class="fas fa-save mr-2"></i>
+          <span data-i18n="profile_modal.save_button">Save Changes</span>
+        </button>
+        <button onclick="hideProfileModal()" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          <i class="fas fa-times mr-2"></i>
+          <span data-i18n="profile_modal.cancel_button">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
       <!-- Farm Profile Section -->
       <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
         <div class="flex justify-between items-center mb-4">
@@ -174,19 +342,21 @@
             <!-- Crop Farming Details (shown by default) -->
             <div id="cropFarmDetails" class="farm-details">
               <div class="grid grid-cols-2 gap-4 mb-4">
-                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <div class="bg-blue-50 dark:bg-gray-700 p-3 rounded-lg">
                   <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="hectares">Hectares</p>
                   <p class="text-xl font-bold dark:text-white">5.2</p>
                 </div>
-                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <div class="bg-blue-50 dark:bg-gray-700 p-3 rounded-lg">
                   <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="main_crop">Main Crop</p>
                   <p class="text-xl font-bold dark:text-white" data-i18n="maize">Maize</p>
                 </div>
-                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                
+                <div class="bg-blue-50 dark:bg-gray-700 p-3 rounded-lg">
                   <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="soil_type">Soil Type</p>
                   <p class="text-xl font-bold dark:text-white">Loamy</p>
                 </div>
-                <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+
+                <div class="bg-blue-50 dark:bg-gray-700 p-3 rounded-lg">
                   <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="water_ph">Water pH Level</p>
                   <p class="text-xl font-bold dark:text-white">6.8</p>
                 </div>
@@ -227,7 +397,8 @@
         </button>
       </div>
 
-      <!-- Farming Type Tabs -->
+      
+      <!-- Farming Type Subtabs -->
       <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6">
         <button id="cropTab" class="px-4 py-2 font-medium text-green-600 dark:text-green-300 border-b-2 border-green-600 dark:border-green-300" data-i18n="crop_farming">
           Crop Farming
@@ -237,80 +408,85 @@
         </button>
       </div>
 
-      <!-- Crop Farming Content -->
+ <!-- Crop Farming Content -->
       <div id="cropContent" class="tab-content active">
-        <!-- Satellite Insights Section -->
-        <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold dark:text-white">
-              <i class="fas fa-satellite mr-2"></i>
-              <span>Satellite Insights</span>
-            </h3>
-            <div class="flex space-x-2">
-              <select id="timeRange" class="bg-gray-100 dark:bg-gray-700 text-sm rounded px-2 py-1">
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-              </select>
-              <button id="drawFieldBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
-                <i class="fas fa-draw-polygon mr-1"></i> Draw Field
-              </button>
-            </div>
-          </div>
+         
+<!-- Satellite Insights Section -->
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow p-6 satellite-section">
+  <!-- Header with API Status -->
+  <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
+    <div>
+      <h3 class="text-lg font-semibold dark:text-white inline-flex items-center">
+        <i class="fas fa-satellite mr-2"></i>
+        <span data-i18n="satellite.title">Satellite Insights</span>
+      </h3>
+      <div class="text-xs mt-1">
+        <span id="apiStatus" class="inline-block w-2 h-2 rounded-full mr-1 bg-yellow-500"></span>
+        <span data-i18n="satellite.api_status">API Status: </span>
+        <span id="apiStatusText">Checking...</span>
+      </div>
+    </div>
+    
+    <button id="fetchSatellite" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+      <i class="fas fa-sync-alt mr-2"></i>
+      <span data-i18n="satellite.fetch_data">Get Satellite Data</span>
+    </button>
+  </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <!-- Field Map -->
-            <div class="lg:col-span-2 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-              <div id="fieldMap"></div>
-            </div>
-            
-            <!-- Field Analysis -->
-            <div class="space-y-4">
-              <div class="flex space-x-2 mb-3">
-                <button id="ndviWeekFilter" class="px-3 py-1 bg-gray-200 rounded text-sm dark:bg-gray-600">Last 7 Days</button>
-                <button id="ndviMonthFilter" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Last 30 Days</button>
-              </div> 
-              <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <h4 class="font-medium mb-2 dark:text-white">Field Health</h4>
-                <div class="flex items-center mb-2">
-                  <span class="health-indicator bg-green-500"></span>
-                  <span class="font-medium dark:text-white">North Field (Maize)</span>
-                </div>
-                <div class="flex justify-between text-sm mb-1">
-                  <span class="text-gray-600 dark:text-gray-300">Current NDVI:</span>
-                  <span class="font-bold dark:text-white">0.72</span>
-                </div>
-                <div class="flex justify-between text-sm mb-3">
-                  <span class="text-gray-600 dark:text-gray-300">Trend:</span>
-                  <span class="font-bold text-green-500">+5.2%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
-                  <div class="bg-green-500 h-2.5 rounded-full" style="width: 72%"></div>
-                </div>
-              </div>
-              
-              <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <h4 class="font-medium mb-2 dark:text-white">Irrigation Recommendation</h4>
-                <div class="flex items-start">
-                  <div class="mr-3 p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
-                    <i class="fas fa-tint text-blue-600 dark:text-blue-300"></i>
-                  </div>
-                  <div>
-                    <p class="text-sm dark:text-gray-300">Recommended: <span class="font-bold">25mm</span> in next 48 hours</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Based on NDVI (0.72) and weather forecast</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <h4 class="font-medium mb-2 dark:text-white">NDVI Trend</h4>
-                <div class="h-40">
-                  <canvas id="ndviTrendChart"></canvas>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+  <!-- Error Message -->
+  <div id="satelliteError" class="hidden bg-red-50 dark:bg-red-900 text-red-600 dark:text-red-200 p-3 rounded mb-4 text-sm"></div>
 
+  <!-- Coordinates Input -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="satellite.latitude">Latitude</label>
+      <input id="latitude" type="number" step="0.0001" 
+             class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
+             data-i18n-placeholder="satellite.lat_placeholder">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="satellite.longitude">Longitude</label>
+      <input id="longitude" type="number" step="0.0001" 
+             class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
+             data-i18n-placeholder="satellite.lng_placeholder">
+    </div>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div id="satelliteLoader" class="hidden text-center py-8">
+    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto"></div>
+    <p class="mt-3 dark:text-white" data-i18n="satellite.loading">Analyzing satellite data...</p>
+  </div>
+
+  <!-- Results Display -->
+  <div id="satelliteResults" class="hidden space-y-6">
+    <!-- Health Status -->
+    <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
+      <h4 class="font-medium mb-2 dark:text-white" data-i18n="satellite.health_status">Field Health Status</h4>
+      <p id="ndviValue" class="text-lg font-bold dark:text-white"></p>
+    </div>
+    
+    <!-- NDVI Map -->
+    <div>
+      <h4 class="font-medium mb-2 dark:text-white" data-i18n="satellite.ndvi_map">NDVI Map</h4>
+      <div id="ndviMap" class="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg"></div>
+      <div class="ndvi-legend flex justify-between mt-2 text-xs px-2">
+        <span class="text-red-600 dark:text-red-400">0 (Unhealthy)</span>
+        <span class="text-yellow-500 dark:text-yellow-300">0.5</span>
+        <span class="text-green-600 dark:text-green-400">1 (Healthy)</span>
+      </div>
+    </div>
+    
+    <!-- Recommendations -->
+    <div class="bg-green-50 dark:bg-green-900 p-4 rounded-lg">
+      <h4 class="font-medium mb-2 dark:text-white" data-i18n="satellite.recommendations">Recommendations</h4>
+      <p id="satelliteAdvice" class="dark:text-white"></p>
+    </div>
+  </div>
+</div>
+
+      
+      
         <!-- Production and Cost Analysis -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <!-- Production Chart -->
@@ -692,52 +868,2045 @@
   </div>
 </div>
 
-    <!-- Other tabs (same as before) -->
 
-<div id="crop-management-tab" class="tab-content">
-      <!-- Content will go here -->
+
+
+
+
+
+
+      <!-- Subtab Contents -->
+      <div id="cropContent" class="tab-content active">
+        <!-- Your existing crop content -->
+      </div>
+
+      <div id="livestockContent" class="tab-content hidden">
+        <!-- Your existing livestock content -->
+      </div>
     </div>
+
+
+    
+    
+
+   <!-- Crop Management Tab -->
+
+<!-- Crop Management Tab -->
+<div id="crop-management-tab" class="tab-content hidden">
+  <!-- Header with Quick Actions -->
+  <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+    <h2 class="text-2xl font-bold dark:text-white">
+      <i class="fas fa-leaf mr-2 text-green-600"></i>
+      <span data-i18n="crop.title">Crop Management</span>
+    </h2>
+    <div class="flex gap-2">
+      <button id="newCropBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-plus mr-2"></i>
+        <span data-i18n="crop.new_crop">New Crop</span>
+      </button>
+      <button id="scanPestBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-bug mr-2"></i>
+        <span data-i18n="crop.scan_pest">Scan Pest</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Irrigation Advisory Section -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-semibold dark:text-white flex items-center">
+        <i class="fas fa-tint text-blue-500 mr-2"></i>
+        <span data-i18n="irrigation.title">Smart Irrigation Advisory</span>
+      </h3>
+      <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" 
+            data-i18n="irrigation.updated">Updated: Just now</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <!-- Field Moisture -->
+      <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
+        <div class="flex items-center mb-2">
+          <i class="fas fa-water text-blue-600 dark:text-blue-300 mr-2"></i>
+          <span class="font-medium dark:text-white" data-i18n="irrigation.soil_moisture">Soil Moisture</span>
+        </div>
+        <div class="flex items-end">
+          <span id="soilMoistureValue" class="text-3xl font-bold dark:text-white mr-2">42%</span>
+          <span id="soilMoistureTrend" class="text-sm flex items-center">
+            <i class="fas fa-arrow-down text-red-500 mr-1"></i>
+            <span data-i18n="irrigation.decreasing">Decreasing</span>
+          </span>
+        </div>
+      </div>
+      
+      <!-- NDVI Health -->
+      <div class="bg-green-50 dark:bg-green-900 p-4 rounded-lg">
+        <div class="flex items-center mb-2">
+          <i class="fas fa-satellite-dish text-green-600 dark:text-green-300 mr-2"></i>
+          <span class="font-medium dark:text-white" data-i18n="irrigation.ndvi">Field Health (NDVI)</span>
+        </div>
+        <div class="flex items-end">
+          <span id="ndviValue" class="text-3xl font-bold dark:text-white mr-2">0.68</span>
+          <span class="text-sm dark:text-green-200" data-i18n="irrigation.good">Good</span>
+        </div>
+      </div>
+      
+      <!-- Weather Impact -->
+      <div class="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+        <div class="flex items-center mb-2">
+          <i class="fas fa-cloud-sun text-yellow-600 dark:text-yellow-300 mr-2"></i>
+          <span class="font-medium dark:text-white" data-i18n="irrigation.weather">Weather Impact</span>
+        </div>
+        <div class="flex items-center">
+          <i class="fas fa-bolt text-yellow-500 mr-2"></i>
+          <span id="weatherImpact" class="dark:text-white" data-i18n="irrigation.high_evap">High evaporation</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Recommendation -->
+      <div class="lg:col-span-2">
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="irrigation.recommendation">Recommendation</h4>
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+          <div class="flex items-start">
+            <div class="bg-blue-100 dark:bg-blue-900 p-2 rounded-full mr-3">
+              <i class="fas fa-info-circle text-blue-600 dark:text-blue-300"></i>
+            </div>
+            <div>
+              <p class="font-medium dark:text-white" data-i18n="irrigation.action_advised">Irrigation Advised</p>
+              <p id="irrigationAdvice" class="text-sm dark:text-gray-300">
+                <span data-i18n="irrigation.full_advice">Apply 25mm water in the next 48 hours. Field B shows early stress (NDVI 0.58). Expected rainfall: 5mm in 3 days.</span>
+              </p>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center">
+              <i class="fas fa-calendar-plus mr-1 text-xs"></i>
+              <span data-i18n="irrigation.schedule">Schedule Irrigation</span>
+            </button>
+            <button class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center">
+              <i class="fas fa-map-marked-alt mr-1 text-xs"></i>
+              <span data-i18n="irrigation.view_ndvi">View NDVI Map</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Mini Field Map -->
+      <div class="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+        <div id="irrigationFieldMap" class="h-full min-h-[200px]"></div>
+        <div class="p-2 bg-white dark:bg-gray-800 text-center text-xs text-gray-500 dark:text-gray-400">
+          <span data-i18n="irrigation.field_b">Field B - Moisture variation</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crop Health Dashboard -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-semibold dark:text-white">
+        <i class="fas fa-heartbeat text-red-500 mr-2"></i>
+        <span data-i18n="crop.health_dashboard">Crop Health Dashboard</span>
+      </h3>
+      <select id="cropHealthTimeRange" class="bg-gray-100 dark:bg-gray-700 text-sm rounded px-2 py-1">
+        <option value="7" data-i18n="time.last_7_days">Last 7 Days</option>
+        <option value="30" selected data-i18n="time.last_30_days">Last 30 Days</option>
+      </select>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Health Status Chart -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="crop.health_trend">Health Trend</h4>
+        <div class="h-64">
+          <canvas id="cropHealthChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- Pest & Disease Alerts -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="crop.alerts">Pest & Disease Alerts</h4>
+        <div class="space-y-3">
+          <div class="p-3 bg-red-50 dark:bg-red-900 rounded-lg flex items-start">
+            <div class="mr-3">
+              <div class="health-indicator bg-red-500"></div>
+            </div>
+            <div>
+              <p class="font-medium dark:text-white" data-i18n="pest.fall_armyworm">Fall Armyworm detected</p>
+              <p class="text-sm dark:text-red-200" data-i18n="crop.maize_field">Maize Field B (0.5ha)</p>
+              <div class="flex mt-1">
+                <button class="text-xs bg-red-600 text-white px-2 py-1 rounded mr-2" data-i18n="crop.view_details">Details</button>
+                <button class="text-xs bg-white text-red-600 border border-red-600 px-2 py-1 rounded dark:bg-red-800 dark:text-white dark:border-red-700" data-i18n="crop.treatment">Treatment</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-3 bg-yellow-50 dark:bg-yellow-900 rounded-lg flex items-start">
+            <div class="mr-3">
+              <div class="health-indicator bg-yellow-500"></div>
+            </div>
+            <div>
+              <p class="font-medium dark:text-white" data-i18n="disease.leaf_rust">Leaf Rust risk high</p>
+              <p class="text-sm dark:text-yellow-200" data-i18n="crop.wheat_field">Wheat Field (1.2ha)</p>
+              <button class="text-xs mt-1 bg-yellow-600 text-white px-2 py-1 rounded" data-i18n="crop.preventative_action">Preventative Action</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Current Crops Section -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-semibold dark:text-white">
+        <i class="fas fa-list-ul text-green-500 mr-2"></i>
+        <span data-i18n="crop.current_crops">Current Crops</span>
+      </h3>
+      <div class="flex items-center">
+        <div class="mr-3 relative">
+          <input type="text" placeholder="Search crops..." class="pl-8 pr-4 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600" data-i18n-placeholder="crop.search">
+          <i class="fas fa-search absolute left-3 top-2 text-gray-400"></i>
+        </div>
+        <select class="bg-gray-100 dark:bg-gray-700 text-sm rounded px-2 py-1">
+          <option value="all" data-i18n="filter.all">All</option>
+          <option value="maize" data-i18n="crop.maize">Maize</option>
+          <option value="beans" data-i18n="crop.beans">Beans</option>
+          <option value="wheat" data-i18n="crop.wheat">Wheat</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-700">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="crop.name">Crop</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="crop.area">Area</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="crop.planting_date">Planting Date</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="crop.stage">Growth Stage</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="crop.health">Health</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+          <!-- Maize Row -->
+          <tr>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 h-10 w-10">
+                  <img class="h-10 w-10 rounded-full" src="https://via.placeholder.com/40?text=M" alt="Maize">
+                </div>
+                <div class="ml-4">
+                  <div class="text-sm font-medium dark:text-white" data-i18n="crop.maize">Maize</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Field B</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="text-sm dark:text-white">0.5 ha</div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="text-sm dark:text-white">15/09/2023</div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="h-2.5 w-2.5 rounded-full bg-blue-500 mr-2"></div>
+                <span data-i18n="stage.vegetative">Vegetative</span>
+              </div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" data-i18n="health.alert">Alert</span>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm">
+              <button class="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-3" data-i18n="actions.view">View</button>
+              <button class="text-green-600 hover:text-green-900 dark:text-green-400" data-i18n="actions.manage">Manage</button>
+            </td>
+          </tr>
+          
+          <!-- Beans Row -->
+          <tr>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 h-10 w-10">
+                  <img class="h-10 w-10 rounded-full" src="https://via.placeholder.com/40?text=B" alt="Beans">
+                </div>
+                <div class="ml-4">
+                  <div class="text-sm font-medium dark:text-white" data-i18n="crop.beans">Beans</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Field A</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="text-sm dark:text-white">0.8 ha</div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="text-sm dark:text-white">01/10/2023</div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                <span data-i18n="stage.germination">Germination</span>
+              </div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-i18n="health.good">Good</span>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm">
+              <button class="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-3" data-i18n="actions.view">View</button>
+              <button class="text-green-600 hover:text-green-900 dark:text-green-400" data-i18n="actions.manage">Manage</button>
+            </td>
+          </tr>
+          
+          <!-- Wheat Row -->
+          <tr>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 h-10 w-10">
+                  <img class="h-10 w-10 rounded-full" src="https://via.placeholder.com/40?text=W" alt="Wheat">
+                </div>
+                <div class="ml-4">
+                  <div class="text-sm font-medium dark:text-white" data-i18n="crop.wheat">Wheat</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">Field C</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="text-sm dark:text-white">1.2 ha</div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="text-sm dark:text-white">20/09/2023</div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="h-2.5 w-2.5 rounded-full bg-yellow-500 mr-2"></div>
+                <span data-i18n="stage.reproductive">Reproductive</span>
+              </div>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap">
+              <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" data-i18n="health.watch">Watch</span>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm">
+              <button class="text-blue-600 hover:text-blue-900 dark:text-blue-400 mr-3" data-i18n="actions.view">View</button>
+              <button class="text-green-600 hover:text-green-900 dark:text-green-400" data-i18n="actions.manage">Manage</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="mt-4 flex justify-between items-center">
+      <div class="text-sm text-gray-500 dark:text-gray-400" data-i18n="pagination.showing">Showing <span class="font-medium">1</span> to <span class="font-medium">3</span> of <span class="font-medium">3</span> crops</div>
+      <div class="flex space-x-1">
+        <button class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white" disabled data-i18n="pagination.previous">Previous</button>
+        <button class="px-3 py-1 rounded bg-green-600 text-white" disabled>1</button>
+        <button class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white" disabled data-i18n="pagination.next">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crop Activities Timeline -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <h3 class="text-xl font-semibold mb-4 dark:text-white">
+      <i class="fas fa-history text-purple-500 mr-2"></i>
+      <span data-i18n="crop.recent_activities">Recent Activities</span>
+    </h3>
+    
+    <div class="space-y-4">
+      <div class="flex">
+        <div class="flex flex-col items-center mr-4">
+          <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+            <i class="fas fa-tint text-green-600 dark:text-green-300 text-sm"></i>
+          </div>
+          <div class="w-px h-full bg-gray-200 dark:bg-gray-600"></div>
+        </div>
+        <div class="pb-4">
+          <p class="font-medium dark:text-white" data-i18n="activity.irrigation">Irrigation Applied</p>
+          <p class="text-sm dark:text-gray-400" data-i18n="crop.maize_field">Maize Field B - 30mm</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500">Today, 10:30 AM</p>
+        </div>
+      </div>
+      
+      <div class="flex">
+        <div class="flex flex-col items-center mr-4">
+          <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+            <i class="fas fa-spray-can text-blue-600 dark:text-blue-300 text-sm"></i>
+          </div>
+          <div class="w-px h-full bg-gray-200 dark:bg-gray-600"></div>
+        </div>
+        <div class="pb-4">
+          <p class="font-medium dark:text-white" data-i18n="activity.pesticide">Pesticide Applied</p>
+          <p class="text-sm dark:text-gray-400" data-i18n="pest.fall_armyworm">For Fall Armyworm</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500">Yesterday, 3:15 PM</p>
+        </div>
+      </div>
+      
+      <div class="flex">
+        <div class="flex flex-col items-center mr-4">
+          <div class="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
+            <i class="fas fa-seedling text-yellow-600 dark:text-yellow-300 text-sm"></i>
+          </div>
+          <div class="w-px h-full bg-gray-200 dark:bg-gray-600"></div>
+        </div>
+        <div class="pb-4">
+          <p class="font-medium dark:text-white" data-i18n="activity.planting">New Planting</p>
+          <p class="text-sm dark:text-gray-400" data-i18n="crop.beans_field">Beans - Field A</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500">Oct 1, 2023</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crop Planning Section -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+    <h3 class="text-xl font-semibold mb-4 dark:text-white">
+      <i class="fas fa-calendar-plus text-orange-500 mr-2"></i>
+      <span data-i18n="crop.planning">Crop Planning</span>
+    </h3>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Planting Calendar -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="crop.planting_calendar">Planting Calendar</h4>
+        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <div id="plantingCalendar" class="h-64"></div>
+          <div class="mt-2 flex justify-center space-x-2">
+            <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-green-500 mr-1"></span> <span class="text-xs" data-i18n="crop.planting">Planting</span></span>
+            <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-yellow-500 mr-1"></span> <span class="text-xs" data-i18n="crop.harvest">Harvest</span></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Recommended Crops -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="crop.recommendations">Recommended Crops</h4>
+        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 bg-white dark:bg-gray-600 rounded-lg flex items-center">
+              <img src="https://via.placeholder.com/40?text=S" alt="Soybeans" class="w-8 h-8 rounded-full mr-2">
+              <div>
+                <p class="font-medium text-sm dark:text-white" data-i18n="crop.soybeans">Soybeans</p>
+                <p class="text-xs text-gray-500 dark:text-gray-300" data-i18n="crop.high_demand">High market demand</p>
+              </div>
+            </div>
+            <div class="p-3 bg-white dark:bg-gray-600 rounded-lg flex items-center">
+              <img src="https://via.placeholder.com/40?text=P" alt="Potatoes" class="w-8 h-8 rounded-full mr-2">
+              <div>
+                <p class="font-medium text-sm dark:text-white" data-i18n="crop.potatoes">Potatoes</p>
+                <p class="text-xs text-gray-500 dark:text-gray-300" data-i18n="crop.soil_match">Good soil match</p>
+              </div>
+            </div>
+            <div class="p-3 bg-white dark:bg-gray-600 rounded-lg flex items-center">
+              <img src="https://via.placeholder.com/40?text=C" alt="Cassava" class="w-8 h-8 rounded-full mr-2">
+              <div>
+                <p class="font-medium text-sm dark:text-white" data-i18n="crop.cassava">Cassava</p>
+                <p class="text-xs text-gray-500 dark:text-gray-300" data-i18n="crop.drought_resistant">Drought resistant</p>
+              </div>
+            </div>
+            <div class="p-3 bg-white dark:bg-gray-600 rounded-lg flex items-center">
+              <img src="https://via.placeholder.com/40?text=G" alt="Groundnuts" class="w-8 h-8 rounded-full mr-2">
+              <div>
+                <p class="font-medium text-sm dark:text-white" data-i18n="crop.groundnuts">Groundnuts</p>
+                <p class="text-xs text-gray-500 dark:text-gray-300" data-i18n="crop.rotation">Good rotation crop</p>
+              </div>
+            </div>
+          </div>
+          <button class="w-full mt-4 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg text-sm" data-i18n="crop.view_all">View All Recommendations</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Crop Modal -->
+<div id="newCropModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+    </div>
+    
+    <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="flex items-start justify-between">
+          <h3 class="text-lg leading-6 font-bold text-gray-900 dark:text-white" data-i18n="crop.new_crop_plan">New Crop Plan</h3>
+          <button onclick="hideModal('newCropModal')" class="text-gray-400 dark:text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 focus:outline-none">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="mt-4 space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.crop_type">Crop Type</label>
+            <select class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+              <option value="" data-i18n="crop.select_crop">Select crop...</option>
+              <option value="maize" data-i18n="crop.maize">Maize</option>
+              <option value="beans" data-i18n="crop.beans">Beans</option>
+              <option value="wheat" data-i18n="crop.wheat">Wheat</option>
+              <option value="potatoes" data-i18n="crop.potatoes">Potatoes</option>
+            </select>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.area_size">Area Size</label>
+              <div class="flex">
+                <input type="number" step="0.1" class="flex-1 px-3 py-2 border rounded-l-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                <select class="px-3 py-2 border-t border-b border-r rounded-r-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                  <option value="ha" data-i18n="units.hectares">ha</option>
+                  <option value="ac" data-i18n="units.acres">ac</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.planting_date">Planting Date</label>
+              <input type="date" class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.field_location">Field Location</label>
+            <select class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+              <option value="" data-i18n="crop.select_field">Select field...</option>
+              <option value="field_a" data-i18n="crop.field_a">Field A</option>
+              <option value="field_b" data-i18n="crop.field_b">Field B</option>
+              <option value="field_c" data-i18n="crop.field_c">Field C</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.variety">Variety (Optional)</label>
+            <input type="text" class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200 dark:border-gray-600">
+        <button type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+          <span data-i18n="crop.create_plan">Create Plan</span>
+        </button>
+        <button onclick="hideModal('newCropModal')" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          <span data-i18n="actions.cancel">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pest Scan Modal -->
+<div id="pestScanModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+    </div>
+    
+    <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="flex items-start justify-between">
+          <h3 class="text-lg leading-6 font-bold text-gray-900 dark:text-white" data-i18n="pest.scan_title">Pest & Disease Identification</h3>
+          <button onclick="hideModal('pestScanModal')" class="text-gray-400 dark:text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 focus:outline-none">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="mt-4">
+          <div id="pestUpload" class="file-upload flex-1 p-8 rounded-lg text-center cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 mb-4">
+            <input type="file" id="pestPhoto" accept="image/*" class="hidden">
+            <i class="fas fa-camera text-3xl text-gray-400 dark:text-gray-300 mb-2"></i>
+            <p class="text-sm text-gray-500 dark:text-gray-300" data-i18n="pest.upload_instructions">Upload or take photo of affected plant</p>
+          </div>
+          <div id="pestImagePreview" class="hidden mb-4"></div>
+          
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.crop_type">Crop Type</label>
+              <select id="pestCropType" class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                <option value="" data-i18n="crop.select_crop">Select crop...</option>
+                <option value="maize" data-i18n="crop.maize">Maize</option>
+                <option value="beans" data-i18n="crop.beans">Beans</option>
+                <option value="wheat" data-i18n="crop.wheat">Wheat</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="crop.field_location">Field Location</label>
+              <select class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                <option value="" data-i18n="crop.select_field">Select field...</option>
+                <option value="field_a" data-i18n="crop.field_a">Field A</option>
+                <option value="field_b" data-i18n="crop.field_b">Field B</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="pestResults" class="hidden p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <h4 class="font-medium mb-2 dark:text-white" data-i18n="pest.results">Analysis Results</h4>
+            <div id="pestTensorflowResult" class="mb-2"></div>
+            <div id="pestAdvice" class="text-sm dark:text-gray-300"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200 dark:border-gray-600">
+        <button id="analyzePest" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+          <span data-i18n="pest.analyze">Analyze</span>
+          <div id="pestLoader" class="loader h-5 w-5 border-2 border-white border-opacity-20 rounded-full ml-2 hidden"></div>
+        </button>
+        <button onclick="hideModal('pestScanModal')" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          <span data-i18n="actions.cancel">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Crop Management Tab ends here -->
+
+    
+
+
 
     <div id="livestock-tab" class="tab-content">
-      <!-- Content will go here -->
+  <!-- Subtabs Navigation -->
+  <div class="flex overflow-x-auto border-b dark:border-gray-700 mb-6">
+    <button class="subtab-btn px-4 py-2 font-medium border-b-2 border-green-500 text-green-600 dark:text-green-300" 
+            data-subtab="overview" data-i18n="livestock.overview">Overview</button>
+    <button class="subtab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+            data-subtab="health" data-i18n="livestock.health">Health</button>
+    <button class="subtab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+            data-subtab="feeding" data-i18n="livestock.feeding">Feeding</button>
+    <button class="subtab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+            data-subtab="breeding" data-i18n="livestock.breeding">Breeding</button>
+    <button class="subtab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+            data-subtab="milk" data-i18n="livestock.milk">Milk</button>
+    <button class="subtab-btn px-4 py-2 font-medium text-gray-500 dark:text-gray-400" 
+            data-subtab="vaccination" data-i18n="livestock.vaccination">Vaccination</button>
+  </div>
+
+  <!-- Overview Subtab -->
+  <div id="overview-subtab" class="subtab-content active">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <!-- Summary Cards -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-cow text-blue-500 mr-2"></i>
+          <span data-i18n="livestock.total_animals">Total Animals</span>
+        </h3>
+        <div class="text-center">
+          <p class="text-4xl font-bold dark:text-white" id="total-animals">0</p>
+          <div class="mt-2 grid grid-cols-3 gap-2">
+            <div>
+              <p class="text-sm dark:text-gray-300">Cattle</p>
+              <p class="font-medium dark:text-white" id="cattle-count">0</p>
+            </div>
+            <div>
+              <p class="text-sm dark:text-gray-300">Goats</p>
+              <p class="font-medium dark:text-white" id="goat-count">0</p>
+            </div>
+            <div>
+              <p class="text-sm dark:text-gray-300">Poultry</p>
+              <p class="font-medium dark:text-white" id="poultry-count">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-heartbeat text-red-500 mr-2"></i>
+          <span data-i18n="livestock.health_status">Health Status</span>
+        </h3>
+        <div class="h-40">
+          <canvas id="healthChart"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-bell text-yellow-500 mr-2"></i>
+          <span data-i18n="livestock.alerts">Alerts</span>
+        </h3>
+        <div class="space-y-2 max-h-40 overflow-y-auto">
+          <div class="p-2 bg-red-50 dark:bg-red-900 rounded flex items-start">
+            <i class="fas fa-exclamation-triangle text-red-500 dark:text-red-300 mt-1 mr-2"></i>
+            <div>
+              <p class="font-medium dark:text-white">2 <span data-i18n="livestock.sick_animals">sick animals</span></p>
+              <p class="text-xs dark:text-red-200">Tag #245, #312</p>
+            </div>
+          </div>
+          <div class="p-2 bg-yellow-50 dark:bg-yellow-900 rounded flex items-start">
+            <i class="fas fa-syringe text-yellow-500 dark:text-yellow-300 mt-1 mr-2"></i>
+            <div>
+              <p class="font-medium dark:text-white">5 <span data-i18n="livestock.due_vaccinations">vaccinations due</span></p>
+              <p class="text-xs dark:text-yellow-200">Next 7 days</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div id="soil-land-tab" class="tab-content">
-      <!-- Content will go here -->
+    <!-- Quick Actions -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white" data-i18n="quick_actions">Quick Actions</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <button onclick="switchSubtab('health')" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div class="bg-red-100 dark:bg-red-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+            <i class="fas fa-heartbeat text-red-600 dark:text-red-300 text-xl"></i>
+          </div>
+          <span class="font-medium dark:text-white" data-i18n="livestock.health_check">Health Check</span>
+        </button>
+        <button onclick="switchSubtab('feeding')" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+            <i class="fas fa-utensils text-yellow-600 dark:text-yellow-300 text-xl"></i>
+          </div>
+          <span class="font-medium dark:text-white" data-i18n="livestock.log_feeding">Log Feeding</span>
+        </button>
+        <button onclick="switchSubtab('milk')" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+            <i class="fas fa-wine-bottle text-blue-600 dark:text-blue-300 text-xl"></i>
+          </div>
+          <span class="font-medium dark:text-white" data-i18n="livestock.record_milk">Record Milk</span>
+        </button>
+        <button onclick="switchSubtab('vaccination')" class="quick-action-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow text-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <div class="bg-green-100 dark:bg-green-900 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+            <i class="fas fa-syringe text-green-600 dark:text-green-300 text-xl"></i>
+          </div>
+          <span class="font-medium dark:text-white" data-i18n="livestock.log_vaccine">Log Vaccine</span>
+        </button>
+      </div>
     </div>
 
-    <div id="market-tab" class="tab-content">
-      <!-- Content will go here -->
+    <!-- Recent Activity -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-history text-purple-500 mr-2"></i>
+        <span data-i18n="livestock.recent_activity">Recent Activity</span>
+      </h3>
+      <div class="space-y-3">
+        <div class="flex items-start">
+          <div class="bg-green-100 dark:bg-green-900 p-2 rounded-full mr-3">
+            <i class="fas fa-syringe text-green-600 dark:text-green-300"></i>
+          </div>
+          <div>
+            <p class="font-medium dark:text-white" data-i18n="livestock.vaccine_recorded">Vaccination recorded</p>
+            <p class="text-sm dark:text-gray-400">Tag #245 - Lumpy Skin Vaccine</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500">2 hours ago</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="bg-blue-100 dark:bg-blue-900 p-2 rounded-full mr-3">
+            <i class="fas fa-weight text-blue-600 dark:text-blue-300"></i>
+          </div>
+          <div>
+            <p class="font-medium dark:text-white" data-i18n="livestock.weight_recorded">Weight recorded</p>
+            <p class="text-sm dark:text-gray-400">Tag #312 - 450kg (+5kg)</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500">Yesterday</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Health Subtab -->
+  <div id="health-subtab" class="subtab-content">
+    <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-cow text-blue-600 dark:text-blue-300 mr-2"></i>
+        <span data-i18n="livestock.health_monitoring">Livestock Health Monitoring</span>
+      </h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.animal_type">Animal Type</label>
+          <select id="animalType" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            <option value="cattle" data-i18n="livestock.cattle">Cattle</option>
+            <option value="goat" data-i18n="livestock.goat">Goat</option>
+            <option value="sheep" data-i18n="livestock.sheep">Sheep</option>
+            <option value="poultry" data-i18n="livestock.poultry">Poultry</option>
+            <option value="pig" data-i18n="livestock.pig">Pig</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.animal_id">Animal ID/Tag</label>
+          <input type="text" id="animalId" placeholder="Enter animal ID" 
+                 class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                 data-i18n-placeholder="livestock.enter_id">
+        </div>
+      </div>
+      
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.observations">Health Observations</label>
+        <textarea id="healthObservations" rows="3" placeholder="Describe any symptoms or observations..."
+                  class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  data-i18n-placeholder="livestock.symptom_placeholder"></textarea>
+      </div>
+      
+      <div class="mb-4">
+        <div id="livestockUpload" class="file-upload flex-1 p-4 rounded-lg text-center cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500">
+          <input type="file" id="livestockPhoto" accept="image/*" class="hidden">
+          <i class="fas fa-camera text-3xl text-gray-400 dark:text-gray-300 mb-2"></i>
+          <p class="text-sm text-gray-500 dark:text-gray-300" data-i18n="livestock.upload_image">Upload animal image (optional)</p>
+        </div>
+        <div id="livestockImagePreview" class="mt-2 hidden"></div>
+      </div>
+      
+      <button id="analyzeLivestock" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center">
+        <span data-i18n="livestock.analyze">Analyze Health</span>
+        <div id="livestockLoader" class="loader h-5 w-5 border-2 border-white border-opacity-20 rounded-full ml-2 hidden"></div>
+      </button>
+      
+      <div id="livestockResults" class="mt-4 hidden">
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="livestock.health_analysis">Health Analysis</h4>
+        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+          <div id="livestockTensorflowResult" class="mb-2"></div>
+          <div id="livestockAdvice" class="text-sm dark:text-gray-300"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Livestock Records Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-clipboard-list text-green-600 dark:text-green-300 mr-2"></i>
+        <span data-i18n="livestock.records">Livestock Records</span>
+      </h3>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.id">ID</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.type">Type</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.breed">Breed</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.age">Age</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.last_checkup">Last Checkup</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.status">Status</th>
+            </tr>
+          </thead>
+          <tbody id="livestockRecords" class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <!-- Records will be populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feeding Subtab -->
+  <div id="feeding-subtab" class="subtab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <!-- Feeding Calculator -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 lg:col-span-2">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-calculator text-yellow-500 mr-2"></i>
+          <span data-i18n="livestock.feeding_calculator">Feeding Calculator</span>
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.animal_type">Animal Type</label>
+            <select id="feedAnimalType" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+              <option value="dairy_cow" data-i18n="livestock.dairy_cow">Dairy Cow</option>
+              <option value="beef_cattle" data-i18n="livestock.beef_cattle">Beef Cattle</option>
+              <option value="goat" data-i18n="livestock.goat">Goat</option>
+              <option value="sheep" data-i18n="livestock.sheep">Sheep</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.weight">Weight (kg)</label>
+            <input type="number" id="animalWeight" placeholder="Enter weight" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                   data-i18n-placeholder="livestock.enter_weight">
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.feed_type">Feed Type</label>
+          <select id="feedType" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            <option value="grass" data-i18n="livestock.grass">Grass</option>
+            <option value="hay" data-i18n="livestock.hay">Hay</option>
+            <option value="silage" data-i18n="livestock.silage">Silage</option>
+            <option value="concentrate" data-i18n="livestock.concentrate">Concentrate</option>
+          </select>
+        </div>
+        
+        <button id="calculateFeed" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-md font-medium">
+          <span data-i18n="livestock.calculate_feed">Calculate Daily Feed</span>
+        </button>
+        
+        <div id="feedResult" class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md hidden">
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="livestock.recommended_feeding">Recommended Feeding</h4>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <p class="text-sm dark:text-gray-300" data-i18n="livestock.dry_matter">Dry Matter</p>
+              <p class="font-medium dark:text-white" id="dryMatterResult">0 kg</p>
+            </div>
+            <div>
+              <p class="text-sm dark:text-gray-300" data-i18n="livestock.protein">Protein</p>
+              <p class="font-medium dark:text-white" id="proteinResult">0 g</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Feed Inventory -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-warehouse text-green-500 mr-2"></i>
+          <span data-i18n="livestock.feed_inventory">Feed Inventory</span>
+        </h3>
+        
+        <div class="space-y-3">
+          <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <div>
+              <p class="font-medium dark:text-white" data-i18n="livestock.grass">Grass</p>
+              <p class="text-sm dark:text-gray-300" data-i18n="livestock.pasture">Pasture</p>
+            </div>
+            <div class="text-right">
+              <p class="font-medium dark:text-white" data-i18n="livestock.good">Good</p>
+              <p class="text-sm dark:text-gray-300">7 <span data-i18n="livestock.days_left">days left</span></p>
+            </div>
+          </div>
+          
+          <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <div>
+              <p class="font-medium dark:text-white" data-i18n="livestock.concentrate">Concentrate</p>
+              <p class="text-sm dark:text-gray-300">50kg <span data-i18n="livestock.bags">bags</span></p>
+            </div>
+            <div class="text-right">
+              <p class="font-medium dark:text-white">3 <span data-i18n="livestock.bags">bags</span></p>
+              <p class="text-sm dark:text-gray-300" data-i18n="livestock.low_stock">Low stock</p>
+            </div>
+          </div>
+        </div>
+        
+        <button class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+          <span data-i18n="livestock.order_feed">Order More Feed</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Feeding Schedule -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-calendar-alt text-blue-500 mr-2"></i>
+        <span data-i18n="livestock.feeding_schedule">Feeding Schedule</span>
+      </h3>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.time">Time</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.group">Group</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.feed_type">Feed Type</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.amount">Amount</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.completed">Completed</th>
+            </tr>
+          </thead>
+          <tbody id="feedingSchedule" class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tr>
+              <td class="px-4 py-2 dark:text-white">06:00 AM</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.dairy_cows">Dairy Cows</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.concentrate">Concentrate</td>
+              <td class="px-4 py-2 dark:text-white">2kg/animal</td>
+              <td class="px-4 py-2">
+                <input type="checkbox" class="rounded text-green-600 dark:bg-gray-700">
+              </td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2 dark:text-white">10:00 AM</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.all">All</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.pasture">Pasture</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.free_access">Free access</td>
+              <td class="px-4 py-2">
+                <input type="checkbox" class="rounded text-green-600 dark:bg-gray-700">
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breeding Subtab -->
+  <div id="breeding-subtab" class="subtab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Breeding Tracker -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-dna text-purple-500 mr-2"></i>
+          <span data-i18n="livestock.breeding_tracker">Breeding Tracker</span>
+        </h3>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.animal_id">Animal ID</label>
+          <input type="text" id="breedingAnimalId" placeholder="Enter animal ID" 
+                 class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                 data-i18n-placeholder="livestock.enter_id">
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.last_heat">Last Heat Date</label>
+            <input type="date" id="lastHeatDate" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.breeding_method">Breeding Method</label>
+            <select id="breedingMethod" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+              <option value="natural" data-i18n="livestock.natural">Natural</option>
+              <option value="ai" data-i18n="livestock.artificial_insemination">Artificial Insemination</option>
+            </select>
+          </div>
+        </div>
+        
+        <button id="recordBreeding" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium">
+          <span data-i18n="livestock.record_breeding">Record Breeding</span>
+        </button>
+        
+        <div id="breedingCycleInfo" class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md hidden">
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="livestock.cycle_info">Cycle Information</h4>
+          <p class="text-sm dark:text-gray-300" data-i18n="livestock.next_heat">Next expected heat: <span id="nextHeatDate" class="font-medium dark:text-white">-</span></p>
+          <p class="text-sm dark:text-gray-300" data-i18n="livestock.breeding_window">Optimal breeding window: <span id="breedingWindow" class="font-medium dark:text-white">-</span></p>
+        </div>
+      </div>
+      
+      <!-- Pregnancy Tracker -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-baby text-pink-500 mr-2"></i>
+          <span data-i18n="livestock.pregnancy_tracker">Pregnancy Tracker</span>
+        </h3>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.pregnant_animals">Pregnant Animals</label>
+          <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <div class="flex items-center justify-between mb-2">
+              <p class="dark:text-white">Tag #245</p>
+              <p class="text-sm dark:text-gray-300">42 <span data-i18n="livestock.days">days</span></p>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
+              <div class="bg-pink-500 h-2.5 rounded-full" style="width: 15%"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.expected_calving">Expected Calving</label>
+          <div class="space-y-2">
+            <div class="p-2 bg-blue-50 dark:bg-blue-900 rounded flex items-start">
+              <i class="fas fa-calendar-day text-blue-500 dark:text-blue-300 mt-1 mr-2"></i>
+              <div>
+                <p class="font-medium dark:text-white">Tag #312</p>
+                <p class="text-xs dark:text-blue-200" data-i18n="livestock.expected">Expected: Dec 15, 2023</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <button class="w-full bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-md font-medium">
+          <span data-i18n="livestock.record_pregnancy">Record Pregnancy Check</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Breeding History -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-history text-amber-500 mr-2"></i>
+        <span data-i18n="livestock.breeding_history">Breeding History</span>
+      </h3>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.animal_id">Animal ID</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.breeding_date">Breeding Date</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.method">Method</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.status">Status</th>
+            </tr>
+          </thead>
+          <tbody id="breedingHistory" class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tr>
+              <td class="px-4 py-2 dark:text-white">#245</td>
+              <td class="px-4 py-2 dark:text-white">Oct 1, 2023</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.ai">AI</td>
+              <td class="px-4 py-2">
+                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-i18n="livestock.confirmed">Confirmed</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2 dark:text-white">#312</td>
+              <td class="px-4 py-2 dark:text-white">Sep 15, 2023</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.natural">Natural</td>
+              <td class="px-4 py-2">
+                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" data-i18n="livestock.pending">Pending</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Milk Subtab -->
+  <div id="milk-subtab" class="subtab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <!-- Milk Production Tracker -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 lg:col-span-2">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-wine-bottle text-blue-500 mr-2"></i>
+          <span data-i18n="livestock.milk_tracker">Milk Production Tracker</span>
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.animal_id">Animal ID</label>
+            <input type="text" id="milkAnimalId" placeholder="Enter ID" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                   data-i18n-placeholder="livestock.enter_id">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.date">Date</label>
+            <input type="date" id="milkDate" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.amount_liters">Amount (liters)</label>
+            <input type="number" step="0.1" id="milkAmount" placeholder="0.0" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.quality_indicators">Quality Indicators</label>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-xs dark:text-gray-400">Fat %</label>
+              <input type="number" step="0.1" id="milkFat" placeholder="3.5" 
+                     class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div>
+              <label class="text-xs dark:text-gray-400">Protein %</label>
+              <input type="number" step="0.1" id="milkProtein" placeholder="3.2" 
+                     class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <div>
+              <label class="text-xs dark:text-gray-400">SCC (x1000)</label>
+              <input type="number" id="milkSCC" placeholder="200" 
+                     class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+          </div>
+        </div>
+        
+        <button id="recordMilk" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium">
+          <span data-i18n="livestock.record_milk">Record Milk Production</span>
+        </button>
+      </div>
+      
+      <!-- Milk Quality Dashboard -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-chart-line text-green-500 mr-2"></i>
+          <span data-i18n="livestock.milk_quality">Milk Quality Dashboard</span>
+        </h3>
+        
+        <div class="space-y-4">
+          <div>
+            <p class="text-sm dark:text-gray-300" data-i18n="livestock.avg_daily_yield">Average Daily Yield</p>
+            <p class="text-2xl font-bold dark:text-white">18.5 <span class="text-sm" data-i18n="livestock.liters">liters</span></p>
+          </div>
+          
+          <div>
+            <p class="text-sm dark:text-gray-300" data-i18n="livestock.avg_fat">Average Fat %</p>
+            <div class="flex items-center">
+              <p class="text-2xl font-bold dark:text-white">3.8%</p>
+              <span class="ml-2 text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">+0.2%</span>
+            </div>
+          </div>
+          
+          <div>
+            <p class="text-sm dark:text-gray-300" data-i18n="livestock.scc">Somatic Cell Count</p>
+            <div class="flex items-center">
+              <p class="text-2xl font-bold dark:text-white">210</p>
+              <span class="ml-2 text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" data-i18n="livestock.high">High</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Milk Production Charts -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-chart-bar text-purple-500 mr-2"></i>
+        <span data-i18n="livestock.production_trends">Production Trends</span>
+      </h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="livestock.daily_production">Daily Production (Last 7 Days)</h4>
+          <div class="h-64">
+            <canvas id="milkDailyChart"></canvas>
+          </div>
+        </div>
+        
+        <div>
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="livestock.quality_trends">Quality Trends</h4>
+          <div class="h-64">
+            <canvas id="milkQualityChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vaccination Subtab -->
+  <div id="vaccination-subtab" class="subtab-content">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Vaccination Recorder -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-syringe text-green-500 mr-2"></i>
+          <span data-i18n="livestock.record_vaccination">Record Vaccination</span>
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.animal_id">Animal ID</label>
+            <input type="text" id="vaccineAnimalId" placeholder="Enter ID" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                   data-i18n-placeholder="livestock.enter_id">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.vaccine_type">Vaccine Type</label>
+            <select id="vaccineType" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+              <option value="lumpy_skin" data-i18n="livestock.lumpy_skin">Lumpy Skin Disease</option>
+              <option value="foot_mouth" data-i18n="livestock.foot_mouth">Foot and Mouth</option>
+              <option value="brucellosis" data-i18n="livestock.brucellosis">Brucellosis</option>
+              <option value="anthrax" data-i18n="livestock.anthrax">Anthrax</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.date_administered">Date Administered</label>
+            <input type="date" id="vaccineDate" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.next_due">Next Due Date</label>
+            <input type="date" id="vaccineNextDate" 
+                   class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="livestock.notes">Notes</label>
+          <textarea id="vaccineNotes" rows="2" placeholder="Any observations..." 
+                    class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    data-i18n-placeholder="livestock.observations_placeholder"></textarea>
+        </div>
+        
+        <button id="recordVaccine" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+          <span data-i18n="livestock.record_vaccine">Record Vaccination</span>
+        </button>
+      </div>
+      
+      <!-- Vaccination Schedule -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+          <i class="fas fa-calendar-check text-blue-500 mr-2"></i>
+          <span data-i18n="livestock.vaccination_schedule">Vaccination Schedule</span>
+        </h3>
+        
+        <div class="space-y-3">
+          <div class="p-3 bg-blue-50 dark:bg-blue-900 rounded-md">
+            <div class="flex justify-between items-center">
+              <div>
+                <p class="font-medium dark:text-white" data-i18n="livestock.lumpy_skin">Lumpy Skin Disease</p>
+                <p class="text-sm dark:text-blue-200" data-i18n="livestock.due">Due: Nov 30, 2023</p>
+              </div>
+              <span class="px-2 py-1 text-xs rounded-full bg-white text-blue-800 dark:bg-blue-200">5 <span data-i18n="livestock.animals">animals</span></span>
+            </div>
+          </div>
+          
+          <div class="p-3 bg-yellow-50 dark:bg-yellow-900 rounded-md">
+            <div class="flex justify-between items-center">
+              <div>
+                <p class="font-medium dark:text-white" data-i18n="livestock.foot_mouth">Foot and Mouth</p>
+                <p class="text-sm dark:text-yellow-200" data-i18n="livestock.due">Due: Dec 15, 2023</p>
+              </div>
+              <span class="px-2 py-1 text-xs rounded-full bg-white text-yellow-800 dark:bg-yellow-200" data-i18n="livestock.all_cattle">All cattle</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-4">
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="livestock.recently_completed">Recently Completed</h4>
+          <div class="space-y-2">
+            <div class="flex justify-between items-center p-2">
+              <p class="text-sm dark:text-gray-300" data-i18n="livestock.brucellosis">Brucellosis - Tag #245</p>
+              <p class="text-xs dark:text-gray-500">Oct 5, 2023</p>
+            </div>
+            <div class="flex justify-between items-center p-2">
+              <p class="text-sm dark:text-gray-300" data-i18n="livestock.anthrax">Anthrax - All</p>
+              <p class="text-xs dark:text-gray-500">Sep 20, 2023</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Vaccination History -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-history text-purple-500 mr-2"></i>
+        <span data-i18n="livestock.vaccination_history">Vaccination History</span>
+      </h3>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.date">Date</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.animal_id">Animal ID</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.vaccine">Vaccine</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300" data-i18n="livestock.next_due">Next Due</th>
+            </tr>
+          </thead>
+          <tbody id="vaccinationHistory" class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tr>
+              <td class="px-4 py-2 dark:text-white">Oct 5, 2023</td>
+              <td class="px-4 py-2 dark:text-white">#245</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.brucellosis">Brucellosis</td>
+              <td class="px-4 py-2 dark:text-white">Oct 5, 2024</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2 dark:text-white">Sep 20, 2023</td>
+              <td class="px-4 py-2 dark:text-white">All</td>
+              <td class="px-4 py-2 dark:text-white" data-i18n="livestock.anthrax">Anthrax</td>
+              <td class="px-4 py-2 dark:text-white">Sep 20, 2024</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+</script>
+
+    
+    
+    
+    
+    
+    <!-- Soil & Land Tab -->
+<!-- Replace your existing soil-land-tab with this -->
+
+<div id="soil-land-tab" class="tab-content">
+  <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+    <h2 class="text-2xl font-bold dark:text-white">
+      <i class="fas fa-seedling mr-2 text-green-600"></i>
+      <span data-i18n="soil.title">Soil & Land Analysis</span>
+    </h2>
+    <div class="flex flex-wrap gap-2">
+      <button id="satelliteAnalysisBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-satellite mr-2"></i>
+        <span data-i18n="soil.satellite">Satellite</span>
+      </button>
+      <button id="photoAnalysisBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-camera mr-2"></i>
+        <span data-i18n="soil.photo">Photo</span>
+      </button>
+      <button id="arAnalysisBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-vr-cardboard mr-2"></i>
+        <span data-i18n="soil.ar">AR Scan</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div id="satelliteCard" class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex items-center mb-4">
+        <div class="bg-indigo-100 dark:bg-indigo-900 p-3 rounded-full mr-3">
+          <i class="fas fa-satellite text-indigo-600 dark:text-indigo-300"></i>
+        </div>
+        <h3 class="font-semibold dark:text-white" data-i18n="soil.satellite_analysis">Satellite Analysis</h3>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-4" data-i18n="soil.satellite_description">
+        Get comprehensive soil data from satellite imagery
+      </p>
+      <div id="satelliteMapContainer" class="relative rounded-lg overflow-hidden h-48 bg-gray-100 dark:bg-gray-700 mb-4">
+        <div id="satelliteMap" class="h-full w-full"></div>
+        <div id="satelliteLoading" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div class="text-center">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-white h-8 w-8 mx-auto mb-2"></div>
+            <p class="text-white text-sm" data-i18n="soil.loading_satellite">Loading satellite data...</p>
+          </div>
+        </div>
+      </div>
+      <button id="fetchSatelliteData" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg">
+        <span data-i18n="soil.fetch_data">Fetch Data</span>
+      </button>
     </div>
 
-    <div id="intelligence-tab" class="tab-content">
-      <!-- Content will go here -->
+    <div id="photoCard" class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex items-center mb-4">
+        <div class="bg-green-100 dark:bg-green-900 p-3 rounded-full mr-3">
+          <i class="fas fa-camera text-green-600 dark:text-green-300"></i>
+        </div>
+        <h3 class="font-semibold dark:text-white" data-i18n="soil.photo_analysis">Photo Analysis</h3>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-4" data-i18n="soil.photo_description">
+        Upload or take a photo of your soil for instant analysis
+      </p>
+      <div id="photoPreviewContainer" class="relative rounded-lg overflow-hidden h-48 bg-gray-100 dark:bg-gray-700 mb-4 flex items-center justify-center">
+        <input type="file" id="soilPhotoInput" accept="image/*" capture="environment" class="hidden">
+        <label for="soilPhotoInput" class="cursor-pointer text-center p-4">
+          <i class="fas fa-camera text-4xl text-gray-400 dark:text-gray-500 mb-2"></i>
+          <p class="text-gray-600 dark:text-gray-400" data-i18n="soil.click_to_capture">Click to capture/upload</p>
+        </label>
+        <img id="soilPhotoPreview" class="absolute inset-0 w-full h-full object-cover hidden">
+      </div>
+      <button id="analyzePhotoBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg" disabled>
+        <span data-i18n="soil.analyze_photo">Analyze Photo</span>
+      </button>
     </div>
 
-    <div id="business-plan-tab" class="tab-content">
-      <!-- Content will go here -->
+    <div id="arCard" class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex items-center mb-4">
+        <div class="bg-purple-100 dark:bg-purple-900 p-3 rounded-full mr-3">
+          <i class="fas fa-vr-cardboard text-purple-600 dark:text-purple-300"></i>
+        </div>
+        <h3 class="font-semibold dark:text-white" data-i18n="soil.ar_analysis">AR Analysis</h3>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-4" data-i18n="soil.ar_description">
+        Scan your field using augmented reality for soil analysis
+      </p>
+      <div id="arViewContainer" class="relative rounded-lg overflow-hidden h-48 bg-gray-100 dark:bg-gray-700 mb-4 flex items-center justify-center">
+        <div id="arView" class="h-full w-full"></div>
+        <button id="startARBtn" class="absolute bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg">
+          <i class="fas fa-play mr-2"></i>
+          <span data-i18n="soil.start_ar">Start AR</span>
+        </button>
+      </div>
+      <button id="saveARDataBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg" disabled>
+        <span data-i18n="soil.save_scan">Save Scan</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8">
+    <h3 class="text-xl font-semibold mb-4 dark:text-white flex items-center">
+      <i class="fas fa-chart-line text-green-500 mr-2"></i>
+      <span data-i18n="soil.health_dashboard">Soil Health Dashboard</span>
+    </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="soil.nutrient_levels">Nutrient Levels</h4>
+        <canvas id="nutrientChart" class="w-full h-64"></canvas>
+      </div>
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="soil.ph_moisture">pH & Moisture</h4>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div class="text-center">
+              <div class="text-3xl font-bold mb-1" id="phValue">6.5</div>
+              <div class="text-sm" data-i18n="soil.ph">pH Level</div>
+              <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="phBar" class="h-2 rounded-full" style="width: 65%; background: linear-gradient(90deg, #ff0000 0%, #ffff00 50%, #00ff00 100%);"></div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div class="text-center">
+              <div class="text-3xl font-bold mb-1" id="moistureValue">42%</div>
+              <div class="text-sm" data-i18n="soil.moisture">Moisture</div>
+              <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="moistureBar" class="h-2 rounded-full bg-blue-500" style="width: 42%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-6">
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="soil.recommendations">Recommendations</h4>
+          <div id="recommendations" class="space-y-2">
+            <div class="flex items-start">
+              <div class="bg-green-100 dark:bg-green-900 p-1 rounded-full mr-2 mt-1">
+                <i class="fas fa-seedling text-green-600 dark:text-green-300 text-xs"></i>
+              </div>
+              <span data-i18n="soil.default_recommendation">Add organic compost to improve nitrogen levels</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+    <h3 class="text-xl font-semibold mb-4 dark:text-white flex items-center">
+      <i class="fas fa-history text-blue-500 mr-2"></i>
+      <span data-i18n="soil.history">Soil Test History</span>
+    </h3>
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-gray-100 dark:bg-gray-700">
+          <tr>
+            <th class="p-3 text-left" data-i18n="soil.date">Date</th>
+            <th class="p-3 text-left" data-i18n="soil.type">Type</th>
+            <th class="p-3 text-left" data-i18n="soil.ph">pH</th>
+            <th class="p-3 text-left" data-i18n="soil.health">Health</th>
+            <th class="p-3 text-left" data-i18n="soil.actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="soilHistoryBody">
+          <tr class="border-b dark:border-gray-700">
+            <td class="p-3">15/06/2023</td>
+            <td class="p-3">Loamy</td>
+            <td class="p-3">6.2</td>
+            <td class="p-3">
+              <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">Good</span>
+            </td>
+            <td class="p-3">
+              <button class="text-blue-600 dark:text-blue-400 hover:underline" data-i18n="soil.view_details">View</button>
+            </td>
+          </tr>
+          <tr class="border-b dark:border-gray-700">
+            <td class="p-3">01/05/2023</td>
+            <td class="p-3">Clay</td>
+            <td class="p-3">5.8</td>
+            <td class="p-3">
+              <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full text-xs">Fair</span>
+            </td>
+            <td class="p-3">
+              <button class="text-blue-600 dark:text-blue-400 hover:underline" data-i18n="soil.view_details">View</button>
+            </td>
+          </tr>
+          <tr>
+            <td class="p-3">12/03/2023</td>
+            <td class="p-3">Sandy</td>
+            <td class="p-3">6.5</td>
+            <td class="p-3">
+              <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">Good</span>
+            </td>
+            <td class="p-3">
+              <button class="text-blue-600 dark:text-blue-400 hover:underline" data-i18n="soil.view_details">View</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Market Tab -->
+    <div id="market-tab" class="tab-content hidden">
+      <h1>Market Content</h1>
+      <p>This is the market section. Add your content here.</p>
     </div>
 
+   
+  <!-- Intelligence Tab -->
+<div id="intelligence-tab" class="tab-content hidden">
+  <!-- Header with Quick Actions -->
+  <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+    <h2 class="text-2xl font-bold dark:text-white">
+      <i class="fas fa-brain mr-2 text-indigo-600"></i>
+      <span data-i18n="intelligence.title">Farm Intelligence</span>
+    </h2>
+    <div class="flex gap-2">
+      <button id="refreshInsights" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-sync-alt mr-2"></i>
+        <span data-i18n="intelligence.refresh">Refresh Insights</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- AI Insights Dashboard -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Predictive Analytics Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex items-center mb-4">
+        <div class="bg-indigo-100 dark:bg-indigo-900 p-3 rounded-full mr-3">
+          <i class="fas fa-chart-line text-indigo-600 dark:text-indigo-300"></i>
+        </div>
+        <h3 class="font-semibold dark:text-white" data-i18n="intelligence.predictive">Predictive Analytics</h3>
+      </div>
+      <div id="predictiveInsights" class="space-y-4">
+        <div class="p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
+          <p class="font-medium dark:text-white flex items-center">
+            <i class="fas fa-cloud-rain mr-2"></i>
+            <span data-i18n="intelligence.weather_risk">Weather Risk</span>
+          </p>
+          <p class="text-sm dark:text-blue-200" data-i18n="intelligence.weather_risk_text">High rainfall expected next week (80% probability)</p>
+        </div>
+        <div class="p-3 bg-yellow-50 dark:bg-yellow-900 rounded-lg">
+          <p class="font-medium dark:text-white flex items-center">
+            <i class="fas fa-bug mr-2"></i>
+            <span data-i18n="intelligence.pest_risk">Pest Risk</span>
+          </p>
+          <p class="text-sm dark:text-yellow-200" data-i18n="intelligence.pest_risk_text">Fall armyworm activity increasing in your region</p>
+        </div>
+      </div>
+      <button id="runPredictions" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md font-medium">
+        <span data-i18n="intelligence.run_analysis">Run Full Analysis</span>
+      </button>
+    </div>
+
+    <!-- Decision Support Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex items-center mb-4">
+        <div class="bg-green-100 dark:bg-green-900 p-3 rounded-full mr-3">
+          <i class="fas fa-lightbulb text-green-600 dark:text-green-300"></i>
+        </div>
+        <h3 class="font-semibold dark:text-white" data-i18n="intelligence.decision_support">Decision Support</h3>
+      </div>
+      <div id="decisionSupport" class="space-y-3">
+        <div class="flex items-start">
+          <div class="bg-gray-100 dark:bg-gray-700 p-2 rounded-full mr-3 mt-1">
+            <i class="fas fa-calendar-day text-gray-600 dark:text-gray-300"></i>
+          </div>
+          <div>
+            <p class="font-medium dark:text-white" data-i18n="intelligence.planting_time">Planting Time</p>
+            <p class="text-sm dark:text-gray-300" data-i18n="intelligence.planting_time_text">Optimal planting window: Oct 15-25</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="bg-gray-100 dark:bg-gray-700 p-2 rounded-full mr-3 mt-1">
+            <i class="fas fa-tint text-blue-500 dark:text-blue-300"></i>
+          </div>
+          <div>
+            <p class="font-medium dark:text-white" data-i18n="intelligence.irrigation">Irrigation</p>
+            <p class="text-sm dark:text-gray-300" data-i18n="intelligence.irrigation_text">Reduce watering by 20% this week</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="bg-gray-100 dark:bg-gray-700 p-2 rounded-full mr-3 mt-1">
+            <i class="fas fa-flask text-purple-500 dark:text-purple-300"></i>
+          </div>
+          <div>
+            <p class="font-medium dark:text-white" data-i18n="intelligence.fertilizer">Fertilizer</p>
+            <p class="text-sm dark:text-gray-300" data-i18n="intelligence.fertilizer_text">Apply NPK 17-17-17 at 50kg/acre</p>
+          </div>
+        </div>
+      </div>
+      <button id="getRecommendations" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+        <span data-i18n="intelligence.get_recommendations">Get Custom Recommendations</span>
+      </button>
+    </div>
+
+    <!-- Market Intelligence Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex items-center mb-4">
+        <div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full mr-3">
+          <i class="fas fa-shopping-basket text-yellow-600 dark:text-yellow-300"></i>
+        </div>
+        <h3 class="font-semibold dark:text-white" data-i18n="intelligence.market_intel">Market Intelligence</h3>
+      </div>
+      <div class="space-y-3">
+        <div class="p-3 bg-green-50 dark:bg-green-900 rounded-lg">
+          <p class="font-medium dark:text-white flex items-center">
+            <i class="fas fa-arrow-up mr-2"></i>
+            <span data-i18n="intelligence.price_trend">Price Trend</span>
+          </p>
+          <p class="text-sm dark:text-green-200" data-i18n="intelligence.price_trend_text">Maize prices up 12% this month</p>
+        </div>
+        <div class="p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
+          <p class="font-medium dark:text-white flex items-center">
+            <i class="fas fa-map-marker-alt mr-2"></i>
+            <span data-i18n="intelligence.best_market">Best Market</span>
+          </p>
+          <p class="text-sm dark:text-blue-200" data-i18n="intelligence.best_market_text">Kigali offers 15% premium over local</p>
+        </div>
+      </div>
+      <div class="mt-4">
+        <canvas id="marketTrendChart" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Assistant Section -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <h3 class="text-xl font-semibold mb-4 dark:text-white flex items-center">
+      <i class="fas fa-robot text-purple-500 mr-2"></i>
+      <span data-i18n="intelligence.ai_assistant">AI Farming Assistant</span>
+    </h3>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Chat Interface -->
+      <div class="lg:col-span-2">
+        <div id="chatContainer" class="border rounded-lg p-4 h-64 overflow-y-auto mb-4 dark:border-gray-700">
+          <div class="chat-message bot-message mb-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <p class="dark:text-white" data-i18n="intelligence.welcome_message">Hello! I'm your farming assistant. How can I help you today?</p>
+          </div>
+        </div>
+        <div class="flex">
+          <input type="text" id="userQuery" placeholder="Ask a farming question..." 
+                 class="flex-1 p-3 border rounded-l-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                 data-i18n-placeholder="intelligence.query_placeholder">
+          <button id="sendQuery" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-r-lg">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Quick Questions -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="intelligence.quick_questions">Quick Questions</h4>
+        <div class="space-y-2">
+          <button class="quick-question-btn w-full text-left p-2 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
+            <span data-i18n="intelligence.q1">Best maize variety for my soil?</span>
+          </button>
+          <button class="quick-question-btn w-full text-left p-2 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
+            <span data-i18n="intelligence.q2">How to treat armyworm infestation?</span>
+          </button>
+          <button class="quick-question-btn w-full text-left p-2 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
+            <span data-i18n="intelligence.q3">Optimal planting dates for beans?</span>
+          </button>
+          <button class="quick-question-btn w-full text-left p-2 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
+            <span data-i18n="intelligence.q4">Current fertilizer prices?</span>
+          </button>
+        </div>
+        
+        <div class="mt-4">
+          <h4 class="font-medium mb-2 dark:text-white" data-i18n="intelligence.voice_assistant">Voice Assistant</h4>
+          <button id="voiceAssistantBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center">
+            <i class="fas fa-microphone mr-2"></i>
+            <span data-i18n="intelligence.tap_to_speak">Tap to Speak</span>
+          </button>
+          <p id="voiceStatus" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden" data-i18n="intelligence.listening">Listening...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historical Data & Trends -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
+    <h3 class="text-xl font-semibold mb-4 dark:text-white flex items-center">
+      <i class="fas fa-chart-bar text-blue-500 mr-2"></i>
+      <span data-i18n="intelligence.trends">Historical Trends & Analysis</span>
+    </h3>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Yield Trends -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="intelligence.yield_trends">Yield Trends</h4>
+        <canvas id="yieldTrendChart" height="200"></canvas>
+      </div>
+      
+      <!-- Cost Analysis -->
+      <div>
+        <h4 class="font-medium mb-2 dark:text-white" data-i18n="intelligence.cost_analysis">Cost Analysis</h4>
+        <canvas id="costAnalysisChart" height="200"></canvas>
+      </div>
+    </div>
+    
+    <div class="mt-6">
+      <h4 class="font-medium mb-2 dark:text-white" data-i18n="intelligence.performance_metrics">Performance Metrics</h4>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg text-center">
+          <p class="text-2xl font-bold dark:text-white">3.2t</p>
+          <p class="text-sm dark:text-gray-300" data-i18n="intelligence.avg_yield">Avg Yield/ha</p>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg text-center">
+          <p class="text-2xl font-bold dark:text-white">18%</p>
+          <p class="text-sm dark:text-gray-300" data-i18n="intelligence.yield_growth">Yield Growth</p>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg text-center">
+          <p class="text-2xl font-bold dark:text-white">1.4x</p>
+          <p class="text-sm dark:text-gray-300" data-i18n="intelligence.roi">ROI</p>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg text-center">
+          <p class="text-2xl font-bold dark:text-white">82%</p>
+          <p class="text-sm dark:text-gray-300" data-i18n="intelligence.efficiency">Efficiency</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Intelligence Tab ends here -->
+
+
+
+    <!-- Business Plan Generator Tab -->
+<!-- Business Plan Generator Tab -->
+<div id="business-plan-tab" class="tab-content hidden">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <!-- Business Plan Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4 dark:text-white flex items-center">
+        <i class="fas fa-file-signature text-purple-600 dark:text-purple-300 mr-2"></i>
+        <span data-i18n="business.plan_details">Business Plan Details</span>
+      </h3>
+      
+      <form id="business-plan-form" class="space-y-4">
+        <!-- Basic Information -->
+        <div>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.project_name">Project Name*</label>
+          <input type="text" id="project-name" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                 placeholder="My Farm Business" required>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.location">Location*</label>
+            <select id="location" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required>
+              <option value="">Select District</option>
+              <option value="Nyagatare">Nyagatare</option>
+              <option value="Rubavu">Rubavu</option>
+              <option value="Musanze">Musanze</option>
+              <option value="Huye">Huye</option>
+              <option value="Kayonza">Kayonza</option>
+              <option value="Rusizi">Rusizi</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.land_size">Land Size (Ha)*</label>
+            <input type="number" id="land-size" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                   placeholder="5.0" step="0.1" min="0.1" required>
+          </div>
+        </div>
+        
+        <!-- Activities Section -->
+        <div>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.main_activities">Main Activities*</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center">
+              <input type="checkbox" id="activity-crops" class="mr-2" checked> 
+              <span data-i18n="farming_types.crops">Crops</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" id="activity-livestock" class="mr-2"> 
+              <span data-i18n="farming_types.livestock">Livestock</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" id="activity-processing" class="mr-2"> 
+              <span data-i18n="farming_types.processing">Processing</span>
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" id="activity-agrotourism" class="mr-2"> 
+              <span data-i18n="farming_types.agrotourism">Agrotourism</span>
+            </label>
+          </div>
+        </div>
+        
+        <!-- Crops Section -->
+        <div id="crops-details" class="space-y-2">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.crop_types">Crop Types</label>
+          <div class="flex">
+            <input type="text" id="crop-types-input" class="flex-1 border rounded-l px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                   placeholder="Maize, Beans, Potatoes">
+            <button type="button" id="add-crop-btn" class="bg-green-600 text-white px-3 py-2 rounded-r">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <div id="crop-tags" class="flex flex-wrap gap-2"></div>
+        </div>
+        
+        <!-- Livestock Section -->
+        <div id="livestock-details" class="space-y-2 hidden">
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.livestock_types">Livestock Types</label>
+          <div class="flex">
+            <input type="text" id="livestock-types-input" class="flex-1 border rounded-l px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                   placeholder="Dairy cows, Poultry, Goats">
+            <button type="button" id="add-livestock-btn" class="bg-green-600 text-white px-3 py-2 rounded-r">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <div id="livestock-tags" class="flex flex-wrap gap-2"></div>
+        </div>
+        
+        <!-- Financial Information -->
+        <div class="pt-4 border-t dark:border-gray-700">
+          <h4 class="text-md font-medium mb-2 dark:text-white" data-i18n="business.financial_info">Financial Information</h4>
+          
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.startup_costs">Startup Costs (RWF)*</label>
+              <input type="number" id="startup-costs" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                     placeholder="5000000" min="0" required>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.monthly_expenses">Monthly Expenses (RWF)*</label>
+                <input type="number" id="monthly-expenses" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                       placeholder="1000000" min="0" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.projected_revenue">Projected Revenue (RWF/mo)*</label>
+                <input type="number" id="projected-revenue" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
+                       placeholder="1500000" min="0" required>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Additional Notes -->
+        <div>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300" data-i18n="business.additional_notes">Additional Notes</label>
+          <textarea id="additional-notes" class="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="3" 
+                    placeholder="Any additional information about your business plan"></textarea>
+        </div>
+        
+        <!-- Generate Button -->
+        <button type="button" id="generate-plan-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center">
+          <i class="fas fa-magic mr-2"></i> 
+          <span data-i18n="business.generate_plan">Generate Business Plan</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Business Plan Output -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold dark:text-white flex items-center">
+          <i class="fas fa-file-alt text-blue-600 dark:text-blue-300 mr-2"></i>
+          <span data-i18n="business.your_plan">Your Business Plan</span>
+        </h3>
+        <div id="plan-date" class="text-sm text-gray-500 dark:text-gray-400"></div>
+      </div>
+      
+      <div id="business-plan-output" class="prose dark:prose-invert max-w-none">
+        <!-- Initial placeholder -->
+        <div class="text-center py-10 text-gray-500 dark:text-gray-400">
+          <i class="fas fa-file-invoice text-4xl mb-3"></i>
+          <p data-i18n="business.plan_placeholder">Your personalized business plan will appear here after you fill the form and click "Generate".</p>
+        </div>
+        
+        <!-- Template that will be populated -->
+        <div id="business-plan-template" class="hidden">
+          <h2 class="text-xl font-bold dark:text-white" id="output-project-name"></h2>
+          <div class="flex items-center text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <i class="fas fa-map-marker-alt mr-1"></i>
+            <span id="output-location"></span> • 
+            <span id="output-land-size"></span>
+          </div>
+          
+          <h3 class="text-lg font-semibold mt-6 dark:text-white" data-i18n="business.overview">Business Overview</h3>
+          <p id="output-business-description" class="dark:text-gray-300"></p>
+          
+          <h3 class="text-lg font-semibold mt-6 dark:text-white" data-i18n="business.activities">Activities</h3>
+          <ul id="output-activities" class="dark:text-gray-300"></ul>
+          
+          <h3 class="text-lg font-semibold mt-6 dark:text-white" data-i18n="business.financial_summary">Financial Summary</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span class="dark:text-gray-300" data-i18n="business.startup_costs">Startup Costs</span>
+              <span class="font-medium dark:text-white" id="output-startup-costs"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="dark:text-gray-300" data-i18n="business.monthly_expenses">Monthly Expenses</span>
+              <span class="font-medium dark:text-white" id="output-monthly-expenses"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="dark:text-gray-300" data-i18n="business.projected_revenue">Projected Revenue</span>
+              <span class="font-medium dark:text-white" id="output-projected-revenue"></span>
+            </div>
+            <div class="flex justify-between border-t dark:border-gray-700 pt-2">
+              <span class="dark:text-gray-300 font-medium" data-i18n="business.projected_profit">Projected Monthly Profit</span>
+              <span class="font-bold dark:text-white" id="output-projected-profit"></span>
+            </div>
+          </div>
+          
+          <!-- AI-Generated Sections -->
+          <div id="ai-generated-content" class="mt-6">
+            <div class="animate-pulse space-y-4 hidden" id="ai-loading">
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+            </div>
+            
+            <div id="ai-executive-summary" class="hidden">
+              <h3 class="text-lg font-semibold mt-6 dark:text-white" data-i18n="business.executive_summary">Executive Summary</h3>
+              <p class="dark:text-gray-300" id="executive-summary-text"></p>
+            </div>
+            
+            <div id="ai-market-analysis" class="hidden">
+              <h3 class="text-lg font-semibold mt-6 dark:text-white" data-i18n="business.market_analysis">Market Analysis</h3>
+              <p class="dark:text-gray-300" id="market-analysis-text"></p>
+            </div>
+            
+            <div id="ai-operations-plan" class="hidden">
+              <h3 class="text-lg font-semibold mt-6 dark:text-white" data-i18n="business.operations_plan">Operations Plan</h3>
+              <p class="dark:text-gray-300" id="operations-plan-text"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div id="action-buttons" class="hidden grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <button id="export-pdf-btn" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center">
+      <i class="fas fa-file-pdf mr-2"></i> 
+      <span data-i18n="business.export_pdf">Export PDF</span>
+    </button>
+    <button id="export-word-btn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center">
+      <i class="fas fa-file-word mr-2"></i> 
+      <span data-i18n="business.export_word">Word Doc</span>
+    </button>
+    <button id="share-plan-btn" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center">
+      <i class="fas fa-share-alt mr-2"></i> 
+      <span data-i18n="business.share_plan">Share Plan</span>
+    </button>
+    <button id="print-plan-btn" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center">
+      <i class="fas fa-print mr-2"></i> 
+      <span data-i18n="business.print_plan">Print</span>
+    </button>
+  </div>
+</div>
+    
   </main>
 
- 
+  
 
-<!-- Script Files -->
-<script src="scripts/translations/en.js"></script>
-<script src="scripts/translations/fr.js"></script>
-<script src="scripts/translations/rw.js"></script>
-<script src="scripts/i18n-init.js"></script> <!-- New initialization file -->
-<script src="scripts/language.js"></script>
-<script src="scripts/satellite.js"></script>
-<script src="scripts/weather.js"></script>
+  <!-- Script Files -->
+  <script src="scripts/translations/en.js"></script>
+  <script src="scripts/translations/fr.js"></script>
+  <script src="scripts/translations/rw.js"></script>
+  <script src="scripts/i18n-init.js"></script>
+  <script src="scripts/language.js"></script>
+  <script src="scripts/satellite.js"></script>
+  <script src="scripts/weather.js"></script>
+  <script src="scripts/tensorflow.js"></script>
+  <script src="scripts/livestock/livestock-main.js"></script>
+  <script src="scripts/intelligence.js"></script>
+  <script src="scripts/soil.js"></script>
+  <script src="scripts/main-crop-management-controller.js"></script>
+  <script src="scripts/irrigation"></script>
+  <script src="scripts/business-plan.js"></script>
+  <script src="scripts/market.js"></script>
+  <script src="scripts/tab.js"></script>
+  
+  
+  
 
+  <!-- Main app scripts -->
+  <script src="scripts/app/tabs.js"></script>
+  <script src="scripts/app/farmingTypeSwitch.js"></script>
+  <script src="scripts/app/maps.js"></script>
+  <script src="scripts/app/charts.js"></script>
+  <script src="scripts/app/ui.js"></script>
+  <script src="scripts/app/profile.js"></script>
 
-<!-- Main app scripts -->
-<script src="scripts/app/tabs.js"></script>
-<script src="scripts/app/farmingTypeSwitch.js"></script>
-<script src="scripts/app/maps.js"></script>
-<script src="scripts/app/charts.js"></script>
-<script src="scripts/app/ui.js"></script>
-
+  
+   
+  
 </body>
 </html>
